@@ -4,11 +4,14 @@ build/
 coverage/
 *.tsbuildinfo
 
+# Real credentials never get committed. Only the `*.example` templates are
+# tracked, so the negations below re-admit just those.
 .env
 .env.local
-.env.*.local
+.env.*
 !.env.example
 !.env.docker.example
+!.env.production.example
 
 server/uploads/*
 !server/uploads/.gitkeep

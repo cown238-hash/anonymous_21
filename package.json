@@ -25,6 +25,7 @@
     "setup": "npm install && npm run db:deploy && npm run db:seed",
     "typecheck": "npm run typecheck --workspace server && npm run typecheck --workspace client",
     "db:deploy": "npm run db:deploy --workspace server",
+    "db:create": "npm run db:create --workspace server",
     "db:migrate": "npm run db:migrate --workspace server",
     "db:apply": "npm run db:apply --workspace server",
     "jobs": "npm run jobs --workspace server",

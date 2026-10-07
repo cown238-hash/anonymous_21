@@ -99,13 +99,14 @@ function md(paragraphs: string[]): string {
 }
 
 /**
- * Slugs must be unique and non-empty. Titles written in Thai (or any script
- * without latin characters) slugify to an empty string, so those fall back to a
- * readable short id.
+ * Slugs must be unique and non-empty. Seed titles mix Thai with latin words,
+ * so the latin part carries the slug and the rest falls back to a short id.
+ * Deliberately independent of `src/utils/text.ts` — that one romanises Thai,
+ * which would make these demo URLs long and hard to read.
  */
 function makeSlug(title: string, index: number): string {
   const ascii = title
-    .normalize('iFKD')
+    .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
