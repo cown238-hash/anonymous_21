@@ -1,0 +1,36 @@
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.docker.example
+
+server/uploads/*
+!server/uploads/.gitkeep
+!server/uploads/.gitignore
+
+backups/
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dev server helper — local process state, never shared.
+.dev-server.pid
+.dev-server.log
+
+# CI is not tracked right now: the GitHub token available on this machine has
+# no `workflow` scope, and GitHub refuses any push that touches this path.
+# Re-enable it (and drop this line) once a token with `workflow` is in use.
+.github/workflows/
+
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

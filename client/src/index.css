@@ -1,0 +1,544 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   WKSL — dark-first design system
+   Base: near-black. Accent: signal green. One hue, used sparingly.
+   ========================================================================== */
+
+@theme {
+  /* Surfaces — pure black at the root, lifting as elements come forward. */
+  --color-surface-0: #050505;
+  --color-surface-1: #0b0b0b;
+  --color-surface-2: #141414;
+  --color-surface-3: #1c1c1c;
+
+  /* Text — high contrast white down to muted grey. */
+  --color-ink-900: #fafafa;
+  --color-ink-700: #d6d6d6;
+  --color-ink-500: #9a9a9a;
+  --color-ink-400: #6e6e6e;
+
+  /* Accent — one green ramp. 500 is the primary action colour. */
+  --color-brand-50: #ecfdf5;
+  --color-brand-200: #a7f3d0;
+  --color-brand-300: #6ee7b7;
+  --color-brand-400: #34d399;
+  --color-brand-500: #10b981;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+
+  /* Second accent for gradients only — a cooler mint. */
+  --color-accent-300: #5eead4;
+  --color-accent-400: #2dd4bf;
+  --color-accent-500: #14b8a6;
+
+  /* Semantic */
+  --color-danger: #f43f5e;
+  --color-warn: #f59e0b;
+  --color-info: #38bdf8;
+
+  --font-sans: 'Inter', 'IBM Plex Sans Thai', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, 'Helvetica Neue', 'Noto Sans Thai', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-4xl: 2rem;
+}
+
+/* --------------------------------------------------------------------------
+   Light theme — the inverse: white paper, ink text, same green accent.
+   -------------------------------------------------------------------------- */
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html:not(.dark) {
+    color-scheme: light;
+    /* Page sits one step below cards so surfaces read as lifted paper. */
+    --color-surface-0: #fafafa;
+    --color-surface-1: #ffffff;
+    --color-surface-2: #f4f4f5;
+    --color-surface-3: #e7e7e9;
+
+    --color-ink-900: #09090b;
+    --color-ink-700: #27272a;
+    --color-ink-500: #52525b;
+    --color-ink-400: #7c7c85;
+
+    /* Slightly deeper green on light so contrast holds up. */
+    --color-brand-500: #059669;
+    --color-brand-600: #047857;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-surface-0 text-ink-900 antialiased;
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    @apply bg-brand-500/30 text-ink-900;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-surface-3) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-surface-3;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-400;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Components
+   -------------------------------------------------------------------------- */
+@layer components {
+  /* Tailwind v4 only allows @apply of real utilities, so shared base styles
+     use selector lists rather than custom-class composition. */
+
+  .card,
+  .card-hover {
+    @apply rounded-2xl border border-ink-500/12 bg-surface-1;
+  }
+
+  .card-hover {
+    @apply transition duration-200 hover:-translate-y-0.5 hover:border-brand-500/45 hover:bg-surface-2
+           hover:shadow-[0_18px_50px_-24px_color-mix(in_oklab,var(--color-brand-500)_60%,transparent)];
+  }
+
+  /* The brand wash is a pseudo-element, so it cannot ride on an `@apply` of a
+     custom class — it is declared alongside `.card-hover` in the selector list
+     below instead. */
+  .card-hover {
+    position: relative;
+  }
+  .card-hover::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+      120% 90% at 50% 0%,
+      color-mix(in oklab, var(--color-brand-500) 22%, transparent),
+      transparent 60%
+    );
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    pointer-events: none;
+  }
+  .card-hover:hover::before {
+    opacity: 1;
+  }
+
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-danger,
+  .btn-sm {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5
+           text-sm font-medium tracking-tight transition duration-150 select-none
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Primary: solid green, black label — maximum contrast, used sparingly. */
+  .btn-primary {
+    @apply bg-brand-500 font-semibold text-black
+           hover:-translate-y-px hover:bg-brand-400 hover:shadow-[0_8px_30px_-8px_var(--color-brand-500)] active:translate-y-0 active:scale-[0.98];
+  }
+
+  /* Secondary: hairline outline, the workhorse. */
+  .btn-secondary {
+    @apply border border-ink-500/20 text-ink-700
+           hover:-translate-y-px hover:border-brand-500/40 hover:bg-brand-500/5 hover:text-ink-900 active:translate-y-0 active:scale-[0.98];
+  }
+
+  .btn-ghost {
+    @apply text-ink-500 hover:bg-surface-2 hover:text-ink-900;
+  }
+
+  .btn-danger {
+    @apply bg-danger/90 font-semibold text-white hover:bg-danger active:scale-[0.98];
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-ink-500/18 bg-surface-1 px-3.5 py-2.5 text-sm text-ink-900
+           transition placeholder:text-ink-400
+           focus:border-brand-500/70 focus:bg-surface-2 focus:ring-2 focus:ring-brand-500/15 focus:outline-none;
+  }
+
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink-700;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .skeleton {
+    @apply animate-pulse rounded-lg bg-surface-2;
+  }
+
+  .link {
+    @apply text-brand-400 transition hover:underline hover:underline-offset-4;
+  }
+
+  .menu-item {
+    @apply flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink-500 transition
+           hover:bg-surface-2 hover:text-ink-900;
+  }
+
+  /* Small uppercase label used above section headings. */
+  .eyebrow {
+    @apply text-[11px] font-semibold tracking-[0.18em] text-ink-400 uppercase;
+  }
+
+  /* Hairline divider that reads as a rule, not a box. */
+  .rule {
+    @apply h-px w-full bg-ink-500/12;
+  }
+
+  .prose-wksl {
+    @apply text-[15px] leading-7 text-ink-700;
+  }
+  .prose-wksl > * + * {
+    @apply mt-4;
+  }
+  .prose-wksl h1 {
+    @apply mt-8 text-2xl font-semibold tracking-tight text-ink-900;
+  }
+  .prose-wksl h2 {
+    @apply mt-8 text-xl font-semibold tracking-tight text-ink-900;
+  }
+  .prose-wksl h3 {
+    @apply mt-6 text-lg font-semibold text-ink-900;
+  }
+  .prose-wksl a {
+    @apply text-brand-400 underline decoration-brand-500/30 underline-offset-4 hover:decoration-brand-400;
+  }
+  .prose-wksl ul {
+    @apply list-disc space-y-1.5 pl-6;
+  }
+  .prose-wksl ol {
+    @apply list-decimal space-y-1.5 pl-6;
+  }
+  .prose-wksl code {
+    @apply rounded-md border border-ink-500/15 bg-surface-2 px-1.5 py-0.5 font-mono text-[13px] text-brand-300;
+  }
+  .prose-wksl pre {
+    @apply overflow-x-auto rounded-xl border border-ink-500/15 bg-surface-0 p-4 text-[13px];
+  }
+  .prose-wksl pre code {
+    @apply border-0 bg-transparent p-0 text-ink-700;
+  }
+  .prose-wksl blockquote {
+    @apply border-l-2 border-brand-500/60 bg-brand-500/5 py-2 pl-4 text-ink-700 italic;
+  }
+  .prose-wksl img {
+    @apply rounded-xl border border-ink-500/12;
+  }
+  .prose-wksl table {
+    @apply w-full border-collapse overflow-hidden rounded-xl text-sm;
+  }
+  .prose-wksl th,
+  .prose-wksl td {
+    @apply border border-ink-500/15 px-3 py-2 text-left;
+  }
+  .prose-wksl th {
+    @apply bg-surface-2 font-semibold text-ink-900;
+  }
+  .prose-wksl hr {
+    @apply border-ink-500/15;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Utilities
+   -------------------------------------------------------------------------- */
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-brand-400 via-accent-400 to-brand-300 bg-clip-text text-transparent;
+  }
+
+  /* Same gradient, but animated so the accent visibly flows through. */
+  .text-gradient-flow {
+    @apply bg-gradient-to-r from-brand-400 via-accent-400 to-brand-300 bg-clip-text text-transparent;
+    background-size: 220% 220%;
+  }
+
+  /* Hairline top border that fades out — used on sticky surfaces. */
+  .edge-fade {
+    mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  }
+
+  /* Subtle grid backdrop for hero sections. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, color-mix(in oklab, var(--color-ink-500) 8%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--color-ink-500) 8%, transparent) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  .glass {
+    @apply border-b border-ink-500/10 bg-surface-1/80 backdrop-blur-xl;
+  }
+
+  .animate-in-up {
+    @apply animate-[fadeUp_0.4s_cubic-bezier(0.16,1,0.3,1)_both];
+  }
+
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .animate-pop {
+    @apply animate-[pop_0.2s_cubic-bezier(0.16,1,0.3,1)_both];
+  }
+
+  @keyframes pop {
+    from {
+      transform: scale(0.96);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-shimmer {
+    @apply animate-[shimmer_1.6s_infinite];
+    background-image: linear-gradient(
+      90deg,
+      var(--color-surface-2) 0%,
+      color-mix(in oklab, var(--color-surface-2) 60%, transparent) 50%,
+      var(--color-surface-2) 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  @keyframes shimmer {
+    to {
+      background-position: -200% 0;
+    }
+  }
+
+  /* Slow breathing glow used on the online indicator. */
+  .pulse-dot {
+    @apply relative flex h-2 w-2;
+  }
+  .pulse-dot::before {
+    content: '';
+    @apply absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-60;
+  }
+  .pulse-dot::after {
+    content: '';
+    @apply relative inline-flex h-2 w-2 rounded-full bg-brand-400;
+  }
+
+  /* Tailwind cannot `@apply` a class this file declares itself, so the blink is
+     attached through a selector rather than composed onto `.pulse-dot`. */
+  .animate-blink-soft {
+    animation: blink-soft 2.4s ease-in-out infinite;
+  }
+
+  /* Ambient drifting glows — pure CSS so they run everywhere, independent of
+     any JS animation library. Used on the hero backdrop. */
+  .animate-drift-a {
+    animation: drift-a 9s ease-in-out infinite;
+  }
+  .animate-drift-b {
+    animation: drift-b 13s ease-in-out infinite;
+  }
+
+  @keyframes drift-a {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(48px, -32px, 0) scale(1.18);
+    }
+  }
+
+  @keyframes drift-b {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1.1);
+    }
+    50% {
+      transform: translate3d(-56px, 28px, 0) scale(0.94);
+    }
+  }
+
+  /* Gentle hover float for the logo chip. */
+  .animate-float-y {
+    animation: float-y 5s ease-in-out infinite;
+  }
+
+  @keyframes float-y {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+
+  /* Slow sheen that sweeps across the logo chip. */
+  .animate-sheen {
+    animation: sheen 3.6s ease-in-out infinite;
+  }
+
+  @keyframes sheen {
+    0%,
+    100% {
+      opacity: 0.25;
+      transform: translateX(-120%);
+    }
+    50% {
+      opacity: 0.9;
+      transform: translateX(120%);
+    }
+  }
+
+  /* Bright ring pulse around the logo chip — the glow read at a glance. */
+  .animate-halo {
+    animation: halo 2.8s ease-out infinite;
+  }
+
+  @keyframes halo {
+    0% {
+      box-shadow: 0 0 0 0 rgba(214, 226, 238, 0.4);
+    }
+    70% {
+      box-shadow: 0 0 0 14px transparent;
+    }
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+    }
+  }
+
+  /* Gradient text that breathes between the two accent shades. */
+  .animate-gradient-flow {
+    background-size: 220% 220%;
+    animation: gradient-flow 7s ease infinite;
+  }
+
+  @keyframes gradient-flow {
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  /* Slow blink for live/online indicators. */
+  .animate-blink-soft {
+    animation: blink-soft 2.4s ease-in-out infinite;
+  }
+
+  @keyframes blink-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+
+  /* Neon text link used on hover states. */
+  .glow-text {
+    text-shadow: 0 0 18px color-mix(in oklab, var(--color-brand-400) 55%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-drift-a,
+    .animate-drift-b,
+    .animate-float-y,
+    .animate-sheen,
+    .animate-halo,
+    .animate-gradient-flow,
+    .animate-blink-soft {
+      animation: none;
+    }
+    .animate-gradient-flow {
+      background-position: 0% 50%;
+    }
+    .animate-blink-soft {
+      opacity: 1;
+    }
+  }
+
+  /* Explicit in-app override (Settings → เอฟเฟกต์) wins over the OS setting:
+     higher specificity than the rules above, and placed after them. */
+  html[data-motion='off'] .animate-drift-a,
+  html[data-motion='off'] .animate-drift-b,
+  html[data-motion='off'] .animate-float-y {
+    animation: none;
+  }
+  html[data-motion='on'] .animate-drift-a {
+    animation: drift-a 9s ease-in-out infinite;
+  }
+  html[data-motion='on'] .animate-drift-b {
+    animation: drift-b 13s ease-in-out infinite;
+  }
+  html[data-motion='on'] .animate-float-y {
+    animation: float-y 5s ease-in-out infinite;
+  }
+
+  /* Same override for the glow effects. */
+  html[data-motion='off'] .animate-sheen,
+  html[data-motion='off'] .animate-halo,
+  html[data-motion='off'] .animate-gradient-flow,
+  html[data-motion='off'] .animate-blink-soft {
+    animation: none;
+  }
+  html[data-motion='on'] .animate-sheen {
+    animation: sheen 3.6s ease-in-out infinite;
+  }
+  html[data-motion='on'] .animate-halo {
+    animation: halo 2.8s ease-out infinite;
+  }
+  html[data-motion='on'] .animate-gradient-flow {
+    animation: gradient-flow 7s ease infinite;
+  }
+  html[data-motion='on'] .animate-blink-soft {
+    animation: blink-soft 2.4s ease-in-out infinite;
+  }
+}

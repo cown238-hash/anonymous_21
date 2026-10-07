@@ -1,0 +1,30 @@
+name: WKSL
+short_name: WKSL
+description: แพลตฟอร์มชุมชนสำหรับแชร์ความรู้ พร้อมแชทแบบเรียลไทม์
+start_url: /
+scope: /
+display: standalone
+background_color: #080c18
+theme_color: #6366f1
+lang: th
+categories: [social, productivity, news]
+icons:
+  - src: /icons/icon-192.png
+    sizes: 192x192
+    type: image/png
+    purpose: any
+  - src: /icons/icon-512.png
+    sizes: 512x512
+    type: image/png
+    purpose: any
+  - src: /icons/icon-maskable.png
+    sizes: 512x512
+    type: image/png
+    purpose: maskable
+shortcuts:
+  - name: เขียนบทความ
+    url: /posts/new
+  - name: ข้อความ
+    url: /chat
+  - name: สำรวจ
+    url: /explore

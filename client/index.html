@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="th" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>WKSL · Community Showcase</title>
+    <meta
+      name="description"
+      content="แพลตฟอร์มชุมชนสำหรับแชร์ความรู้ พูดคุยแบบเรียลไทม์ และสร้างสิ่งที่ดีไปด้วยกัน"
+    />
+    <meta name="theme-color" content="#10b981" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#050505" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="WKSL" />
+    <meta property="og:locale" content="th_TH" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script>
+      // Apply the saved theme before first paint to avoid a flash of the wrong
+      // colour scheme.
+      (function () {
+        try {
+          var saved = localStorage.getItem('nimbus.theme');
+          var dark = saved ? saved === 'dark' : true;
+          document.documentElement.classList.toggle('dark', dark);
+          var motion = localStorage.getItem('wksl.motion');
+          document.documentElement.dataset.motion =
+            motion === 'on' || motion === 'off' ? motion : 'auto';
+        } catch (e) {
+          /* private mode: fall back to the light theme */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <div style="padding: 2rem; text-align: center">
+        WKSL ต้องใช้ JavaScript ในการทำงาน — กรุณาเปิด JavaScript แล้วโหลดหน้านี้ใหม่
+      </div>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

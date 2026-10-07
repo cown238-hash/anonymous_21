@@ -1,0 +1,45 @@
+{
+  "name": "anounymos-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WKSL - full-featured community showcase web app (React + Node + Socket.IO + PostgreSQL/Prisma)",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c cyan,magenta \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-start.ps1",
+    "dev:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-stop.ps1",
+    "dev:server": "npm run dev --workspace server",
+    "dev:client": "npm run dev --workspace client",
+    "build": "npm run build --workspace server && npm run build --workspace client",
+    "start": "npm run start --workspace server",
+    "db:push": "npm run db:push --workspace server",
+    "db:seed": "npm run db:seed --workspace server",
+    "db:studio": "npm run db:studio --workspace server",
+    "db:reset": "npm run db:reset --workspace server",
+    "test": "npm run test --workspace server",
+    "test:unit": "npm run test:unit --workspace server",
+    "test:e2e": "npm run test:e2e --workspace server",
+    "setup": "npm install && npm run db:deploy && npm run db:seed",
+    "typecheck": "npm run typecheck --workspace server && npm run typecheck --workspace client",
+    "db:deploy": "npm run db:deploy --workspace server",
+    "db:migrate": "npm run db:migrate --workspace server",
+    "db:apply": "npm run db:apply --workspace server",
+    "jobs": "npm run jobs --workspace server",
+    "uploads:prune": "npm run uploads:prune --workspace server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "@prisma/client": true,
+    "@prisma/engines": true,
+    "prisma": true,
+    "esbuild": true
+  }
+}
