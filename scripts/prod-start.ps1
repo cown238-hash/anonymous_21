@@ -39,16 +39,23 @@ if (-not (Test-Path (Join-Path $root 'client\dist\index.html'))) {
   exit 1
 }
 
-# ENV_FILE tells the server which env file to load, so there is no need to
-# overwrite server/.env while the process boots.
 if (Test-Path $logFile) { Remove-Item $logFile -Force -ErrorAction SilentlyContinue }
-$env:ENV_FILE = '.env.production'
-$proc = Start-Process cmd.exe `
-  -ArgumentList '/c', "npm start > `"$logFile`" 2>&1" `
-  -WorkingDirectory $root `
-  -WindowStyle Minimized `
-  -PassThru
-Set-Content -Path $pidFile -Value $proc.Id -NoNewline
+
+# The process must outlive the shell that starts it. Start-Process allocates a
+# new console but the child still belongs to the parent's process group, so when
+# the shell is recycled the Ctrl+C reaches it and it dies with ^C^C^C in the log.
+# Win32_Process.Create has no console and no process-group membership, so the
+# server keeps running. `cmd /c start` was tried and does not work — the nested
+# quoting means the inner command never runs.
+# Win32_Process.Create does not inherit the caller's working directory, so the
+# project root has to be set explicitly or npm looks for package.json in System32.
+$commandLine = "cmd /c `"cd /d `"$root`" && set ENV_FILE=.env.production && npm start > `"$logFile`" 2>&1`""
+$created = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $commandLine }
+if ($created.ReturnValue -ne 0) {
+  Write-Host "could not start the production server (Win32_Process.Create returned $($created.ReturnValue))" -ForegroundColor Red
+  exit 1
+}
+Set-Content -Path $pidFile -Value $created.ProcessId -NoNewline
 
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 $ready = $false

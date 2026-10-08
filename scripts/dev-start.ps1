@@ -5,9 +5,9 @@
 .DESCRIPTION
   Running `npm run dev` in the foreground is the wrong shape for this harness:
   the shell is recycled periodically, the kill signal reaches the process group,
-  and both halves die with STATUS_CONTROL_C_EXIT (3221225786). Launching via
-  cmd /c start detaches the tree so a Ctrl+C here cannot take the server with
-  it.
+  and both halves die with STATUS_CONTROL_C_EXIT (3221225786). The server is
+  therefore launched through Win32_Process.Create, which gives it no console and
+  no place in this shell's process group, so a Ctrl+C here cannot take it down.
 
   This script also writes .dev-server.pid so dev:stop can target exactly this
   project. Killing "all node.exe" is never correct — it takes unrelated work on
@@ -34,13 +34,18 @@ if (Test-Path $pidFile) {
 if (Test-Path $logFile) { Remove-Item $logFile -Force }
 
 Write-Host 'starting dev server (detached)…'
-$proc = Start-Process cmd.exe `
-  -ArgumentList '/c', "npm run dev > `"$logFile`" 2>&1" `
-  -WorkingDirectory $root `
-  -WindowStyle Minimized `
-  -PassThru
+# Win32_Process.Create, not Start-Process: the child must have no console and no
+# membership in this shell's process group. Start-Process allocates a window but
+# the child stays in the parent's group, so the Ctrl+C that arrives when the
+# shell is recycled kills the server too.
+$created = Invoke-CimMethod -ClassName Win32_Process -MethodName Create `
+  -Arguments @{ CommandLine = "cmd /c `"cd /d `"$root`" && npm run dev > `"$logFile`" 2>&1`"" }
+if ($created.ReturnValue -ne 0) {
+  Write-Host "could not start the dev server (Win32_Process.Create returned $($created.ReturnValue))" -ForegroundColor Red
+  exit 1
+}
 
-Set-Content -Path $pidFile -Value $proc.Id -NoNewline
+Set-Content -Path $pidFile -Value $created.ProcessId -NoNewline
 
 # Wait for the API to answer rather than sleeping a fixed amount.
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
