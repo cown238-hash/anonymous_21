@@ -39,6 +39,19 @@ if (-not (Test-Path (Join-Path $root 'client\dist\index.html'))) {
   exit 1
 }
 
+# The dev server uses the same port, so this has to be checked before launch.
+# Without it the readiness probe below is answered by the dev server and the
+# script reports success for a process that actually died on EADDRINUSE.
+$port = ([regex]::Match([System.IO.File]::ReadAllText($envFile), '(?m)^PORT\s*=\s*(\d+)')).Groups[1].Value
+if (-not $port) { $port = '4000' }
+$occupied = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+if ($occupied) {
+  Write-Host "port $port is already in use (pid $($occupied[0].OwningProcess))." -ForegroundColor Red
+  Write-Host 'The dev server uses the same port. Stop it first:' -ForegroundColor Yellow
+  Write-Host '  npm run dev:stop'
+  exit 1
+}
+
 if (Test-Path $logFile) { Remove-Item $logFile -Force -ErrorAction SilentlyContinue }
 
 # The process must outlive the shell that starts it. Start-Process allocates a
@@ -62,7 +75,14 @@ $ready = $false
 while ((Get-Date) -lt $deadline) {
   Start-Sleep -Milliseconds 800
   try {
-    $health = Invoke-RestMethod 'http://localhost:4000/api/ready' -TimeoutSec 2
+    $health = Invoke-RestMethod "http://localhost:$port/api/ready" -TimeoutSec 2
+    # Confirm it is our process answering, not a leftover server on the port.
+    $alive = Get-Process -Id $created.ProcessId -ErrorAction SilentlyContinue
+    if (-not $alive) {
+      Write-Host 'the production server exited during startup — last log lines:' -ForegroundColor Red
+      if (Test-Path $logFile) { Get-Content $logFile -Tail 20 | ForEach-Object { "  $_" } }
+      exit 1
+    }
     if ($health.data.status -eq 'ready') { $ready = $true; break }
   } catch {
     # not up yet
@@ -76,8 +96,8 @@ if (-not $ready) {
 }
 
 Write-Host 'production server ready'
-Write-Host '  web      http://localhost:4000'
-Write-Host '  api      http://localhost:4000/api'
+Write-Host "  web      http://localhost:$port"
+Write-Host "  api      http://localhost:$port/api"
 Write-Host "  database wksl_prod (server/.env.production)"
 Write-Host "  pid file $pidFile"
 Write-Host "  log      $logFile"
