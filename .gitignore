@@ -26,6 +26,8 @@ pnpm-debug.log*
 # Dev server helper — local process state, never shared.
 .dev-server.pid
 .dev-server.log
+.prod-server.pid
+.prod-server.log
 
 # CI is not tracked right now: the GitHub token available on this machine has
 # no `workflow` scope, and GitHub refuses any push that touches this path.

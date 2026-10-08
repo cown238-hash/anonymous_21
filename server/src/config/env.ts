@@ -11,15 +11,32 @@ import { z } from 'zod';
  */
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-for (const candidate of [
-  path.join(packageRoot, '.env'),
-  path.resolve(process.cwd(), 'server', '.env'),
-  path.resolve(process.cwd(), '.env'),
-]) {
+/**
+ * ENV_FILE picks the env file explicitly, which is how the production runner
+ * points at `server/.env.production` without having to overwrite `.env` while
+ * the server boots.
+ */
+const explicit = process.env.ENV_FILE?.trim();
+const candidates = explicit
+  ? [path.resolve(packageRoot, '..', explicit), path.resolve(explicit)]
+  : [
+      path.join(packageRoot, '.env'),
+      path.resolve(process.cwd(), 'server', '.env'),
+      path.resolve(process.cwd(), '.env'),
+    ];
+
+for (const candidate of candidates) {
   if (fs.existsSync(candidate)) {
     dotenv.config({ path: candidate });
+    if (explicit) {
+      console.info(`[env] loaded ${candidate}`);
+    }
     break;
   }
+}
+
+if (explicit && !candidates.some((c) => fs.existsSync(c))) {
+  throw new Error(`ENV_FILE points at a file that does not exist: ${process.env.ENV_FILE}`);
 }
 
 const bool = z
