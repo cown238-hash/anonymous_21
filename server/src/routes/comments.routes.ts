@@ -9,6 +9,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { writeLimiter } from '../middleware/rate-limit.js';
 import { commentInclude, publicUserSelect, serializeComment } from '../serializers/index.js';
 import { notify } from '../services/notifications.js';
+import { visibleComments } from '../lib/visibility.js';
 
 const router = Router({ mergeParams: true });
 
@@ -34,7 +35,11 @@ router.get(
     const post = await prisma.post.findUnique({ where: { id: postId }, select: { id: true } });
     if (!post) throw HttpError.notFound('ไม่พบบทความที่ต้องการ');
 
-    const where = { postId, parentId: null };
+    const where = {
+      postId,
+      parentId: null,
+      AND: [visibleComments(req.user)],
+    };
     const orderBy = sort === 'oldest' ? { createdAt: 'asc' as const } : { createdAt: 'desc' as const };
 
     const [total, rows] = await Promise.all([
@@ -50,7 +55,7 @@ router.get(
 
     // Attach replies for each root comment in one extra query.
     const replies = await prisma.comment.findMany({
-      where: { postId, parentId: { in: rows.map((r) => r.id) } },
+      where: { postId, parentId: { in: rows.map((r) => r.id) }, AND: [visibleComments(req.user)] },
       include: commentInclude,
       orderBy: { createdAt: 'asc' },
     });

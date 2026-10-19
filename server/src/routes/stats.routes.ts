@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma.js';
 import { asyncHandler } from '../lib/async-handler.js';
 import { ok } from '../lib/http.js';
 import { publicUserSelect, serializeUser, postInclude, serializePost, categorySelect, serializeCategory, tagSelect, serializeTag } from '../serializers/index.js';
+import { visiblePosts } from '../lib/visibility.js';
 
 const router = Router();
 
@@ -19,19 +20,25 @@ router.get(
 
     const [userCount, postCount, commentCount, messageCount, onlineNow] = await Promise.all([
       prisma.user.count({ where: { isBanned: false } }),
-      prisma.post.count({ where: { status: 'PUBLISHED' } }),
-      prisma.comment.count({ where: { isDeleted: false } }),
+      prisma.post.count({ where: { status: 'PUBLISHED', author: { isHidden: false } } }),
+      prisma.comment.count({ where: { isDeleted: false, author: { isHidden: false } } }),
       prisma.message.count(),
       import('../realtime/emitter.js').then((m) => m.onlineUserIds().length),
     ]);
 
     const [posts, comments, users] = await Promise.all([
       prisma.post.findMany({
-        where: { createdAt: { gte: since } },
+        where: { createdAt: { gte: since }, author: { isHidden: false } },
         select: { createdAt: true },
       }),
-      prisma.comment.findMany({ where: { createdAt: { gte: since } }, select: { createdAt: true } }),
-      prisma.user.findMany({ where: { createdAt: { gte: since } }, select: { createdAt: true } }),
+      prisma.comment.findMany({
+        where: { createdAt: { gte: since }, author: { isHidden: false } },
+        select: { createdAt: true },
+      }),
+      prisma.user.findMany({
+        where: { createdAt: { gte: since }, isHidden: false },
+        select: { createdAt: true },
+      }),
     ]);
 
     const buckets = Array.from({ length: days }, (_, i) => {
@@ -165,7 +172,7 @@ router.get(
   '/contributors',
   asyncHandler(async (_req, res) => {
     const users = await prisma.user.findMany({
-      where: { isBanned: false },
+      where: { isBanned: false, isHidden: false },
       select: { ...publicUserSelect, _count: { select: { posts: true, comments: true } } },
       take: 100,
     });
@@ -196,7 +203,7 @@ router.get(
   '/latest',
   asyncHandler(async (req, res) => {
     const posts = await prisma.post.findMany({
-      where: { status: 'PUBLISHED' },
+      where: { status: 'PUBLISHED', AND: [visiblePosts(req.user)] },
       include: postInclude,
       orderBy: { publishedAt: 'desc' },
       take: 6,

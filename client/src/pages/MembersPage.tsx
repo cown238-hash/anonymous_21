@@ -110,11 +110,6 @@ export function MembersPage() {
                       </span>
                       <span className="block truncate text-xs text-ink-400">@{u.username}</span>
                     </Link>
-                    {u.role === 'ADMIN' && (
-                      <span className="badge mt-1.5 bg-brand-500/12 text-brand-400 dark:text-brand-400">
-                        ผู้ดูแลระบบ
-                      </span>
-                    )}
                     {isAdmin && u.isHidden && (
                       <span className="badge mt-1.5 border border-warn/30 bg-warn/10 text-warn">
                         ซ่อนโปรไฟล์อยู่

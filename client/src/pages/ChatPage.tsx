@@ -506,10 +506,7 @@ function MembersModal({ conversation, onClose }: { conversation: Conversation; o
                 <p className="truncate text-sm font-medium">{p.displayName}</p>
                 <p className="truncate text-xs text-ink-400">@{p.username}</p>
               </div>
-              {p.role === 'ADMIN' && (
-                <span className="badge bg-brand-500/12 text-brand-400 dark:text-brand-400">แอดมิน</span>
-              )}
-            </li>
+              </li>
           ))}
           {conversation.participants.length === 0 && (
             <li className="py-6 text-center text-sm text-ink-400">ยังไม่มีสมาชิกอื่นในห้อง</li>

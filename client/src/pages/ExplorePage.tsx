@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Award, Compass, Hash, TrendingUp, Trophy } from 'lucide-react';
 import { api } from '../lib/api';
 import { useSeo } from '../lib/seo';
-import { Avatar, Badge, CardSkeleton, EmptyState } from '../components/ui';
+import { Avatar, CardSkeleton, EmptyState } from '../components/ui';
 import { PostCard } from '../components/PostCard';
 import type { Category, Overview, Post, Tag, User } from '../types';
 
@@ -203,9 +203,6 @@ export function ExplorePage() {
                         {c.posts} บทความ · {c.comments} ความคิดเห็น
                       </span>
                     </span>
-                    {c.role === 'ADMIN' && (
-                      <Badge className="bg-brand-500/12 text-brand-400 dark:text-brand-400">แอดมิน</Badge>
-                    )}
                     <span className="shrink-0 text-xs font-semibold text-ink-500">{c.score}</span>
                   </Link>
                 </li>

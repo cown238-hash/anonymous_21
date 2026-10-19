@@ -38,13 +38,13 @@ router.get(
   asyncHandler(async (_req, res) => {
     const [posts, users, categories] = await Promise.all([
       prisma.post.findMany({
-        where: { status: PostStatus.PUBLISHED },
+        where: { status: PostStatus.PUBLISHED, author: { isHidden: false } },
         select: { slug: true, updatedAt: true },
         orderBy: { updatedAt: 'desc' },
         take: 5000,
       }),
       prisma.user.findMany({
-        where: { isBanned: false, deletedAt: null },
+        where: { isBanned: false, deletedAt: null, isHidden: false },
         select: { username: true, updatedAt: true },
         take: 2000,
       }),

@@ -12,7 +12,6 @@ import {
   MessageCircle,
   MessageSquarePlus,
   PenSquare,
-  Shield,
 } from 'lucide-react';
 import { api, qs } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -135,11 +134,6 @@ export function ProfilePage() {
             <div className="min-w-0 flex-1 pb-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl font-bold tracking-tight">{profile.displayName}</h1>
-                {profile.role === 'ADMIN' && (
-                  <span className="badge bg-brand-500/12 text-brand-400 dark:text-brand-400">
-                    <Shield size={11} /> ผู้ดูแลระบบ
-                  </span>
-                )}
                 {isOnline && (
                   <span className="badge border border-brand-500/30 bg-brand-500/10 text-brand-400">
                     ออนไลน์

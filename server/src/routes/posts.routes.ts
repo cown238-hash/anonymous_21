@@ -12,10 +12,11 @@ import { requireAuth } from '../middleware/auth.js';
 import { writeLimiter } from '../middleware/rate-limit.js';
 import { removeUpload, removeUploadByFilename, isSafeInline } from '../middleware/upload.js';
 import { env } from '../config/env.js';
-import { postInclude, serializePost, serializeTag } from '../serializers/index.js';
+import { postInclude, publicUserSelect, serializePost, serializeTag } from '../serializers/index.js';
 import { slugify, uniqueSlug, estimateReadMinutes, excerptFrom } from '../utils/text.js';
 import { notify } from '../services/notifications.js';
 import { removePostLikes, removePostComments, removePostTagLinks } from '../services/post-cleanup.js';
+import { isAuthorVisible, visiblePosts } from '../lib/visibility.js';
 
 const router = Router();
 
@@ -133,15 +134,22 @@ router.get(
       ...(author ? { author: { username: author } } : {}),
       ...(category ? { category: { slug: category } } : {}),
       ...(tag ? { tags: { some: { tag: { slug: tag } } } } : {}),
-      ...(q
-        ? {
-            OR: [
-              { title: { contains: q, mode: 'insensitive' } },
-              { content: { contains: q, mode: 'insensitive' } },
-              { excerpt: { contains: q, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
+      // Searching must not widen visibility: the title/body match lives in AND,
+      // otherwise its OR would overwrite the status OR above.
+      AND: [
+        visiblePosts(req.user),
+        ...(q
+          ? ([
+              {
+                OR: [
+                  { title: { contains: q, mode: 'insensitive' } },
+                  { content: { contains: q, mode: 'insensitive' } },
+                  { excerpt: { contains: q, mode: 'insensitive' } },
+                ],
+              },
+            ] satisfies Prisma.PostWhereInput[])
+          : []),
+      ],
     };
 
     const orderBy: Prisma.PostOrderByWithRelationInput[] =
@@ -176,12 +184,16 @@ router.get(
     const viewerId = req.user?.id;
     const post = await prisma.post.findFirst({
       where: { OR: [{ slug: key }, { id: key }] },
-      include: postInclude,
+      include: { ...postInclude, author: { select: { ...publicUserSelect, isHidden: true } } },
     });
     if (!post) throw HttpError.notFound('ไม่พบบทความที่ต้องการ');
 
     const isOwner = viewerId === post.authorId;
     if (post.status !== PostStatus.PUBLISHED && !isOwner && req.user?.role !== 'ADMIN') {
+      throw HttpError.notFound('ไม่พบบทความที่ต้องการ');
+    }
+    // Same 404 as a missing post, so hidden authors are not confirmed to exist.
+    if (!isAuthorVisible(post.author, req.user)) {
       throw HttpError.notFound('ไม่พบบทความที่ต้องการ');
     }
 
@@ -195,9 +207,14 @@ router.get(
       where: {
         id: { not: post.id },
         status: PostStatus.PUBLISHED,
-        OR: [
-          ...(post.categoryId ? [{ categoryId: post.categoryId }] : []),
-          { tags: { some: { tagId: { in: post.tags.map((t) => t.tagId) } } } },
+        AND: [
+          {
+            OR: [
+              ...(post.categoryId ? [{ categoryId: post.categoryId }] : []),
+              { tags: { some: { tagId: { in: post.tags.map((t) => t.tagId) } } } },
+            ],
+          },
+          visiblePosts(req.user),
         ],
       },
       include: postInclude,
@@ -388,6 +405,38 @@ router.delete(
 );
 
 /**
+ * Parses a single-range `Range: bytes=a-b` header.
+ *
+ * Returns null when there is no range to honour, the string `'invalid'` when
+ * the client asked for something unsatisfiable (the caller answers 416), and
+ * otherwise the inclusive byte bounds.
+ */
+function parseRange(header: string | undefined, size: number): { start: number; end: number } | null | 'invalid' {
+  if (!header) return null;
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+  if (!match) return null; // multi-range and non-byte units are not supported
+
+  const [, rawStart, rawEnd] = match;
+  if (rawStart === '' && rawEnd === '') return 'invalid';
+
+  // `bytes=-500` means the final 500 bytes, not "from 0 to 500".
+  let start: number;
+  let end: number;
+  if (rawStart === '') {
+    const suffix = Number(rawEnd);
+    if (suffix === 0) return 'invalid';
+    start = Math.max(0, size - suffix);
+    end = size - 1;
+  } else {
+    start = Number(rawStart);
+    end = rawEnd === '' ? size - 1 : Number(rawEnd);
+  }
+
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= size) return 'invalid';
+  return { start, end: Math.min(end, size - 1) };
+}
+
+/**
  * GET /api/posts/:slugOrId/attachments/:attachmentId - serve the stored file.
  *
  * Files are never exposed through the static `/uploads` mount: going through
@@ -429,7 +478,23 @@ router.get(
 
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'private, max-age=3600');
-    res.setHeader('Content-Length', String(stat.size));
+    res.setHeader('Accept-Ranges', 'bytes');
+
+    // Video players issue Range requests to seek; answering them is what turns a
+    // clip into a scrubbable timeline instead of a single linear download.
+    const range = parseRange(req.headers.range, stat.size);
+    if (range === 'invalid') {
+      res.setHeader('Content-Range', `bytes */${stat.size}`);
+      return res.status(416).end();
+    }
+
+    const { start, end } = range ?? { start: 0, end: stat.size - 1 };
+    const length = end - start + 1;
+    res.setHeader('Content-Length', String(length));
+    if (range) {
+      res.status(206);
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${stat.size}`);
+    }
     res.setHeader('Content-Type', canInline ? file.mimeType : 'application/octet-stream');
     // `filename*` keeps non-ASCII names intact; the plain form is a fallback for
     // clients that ignore RFC 5987. Quotes and backslashes would break the header.
@@ -439,8 +504,10 @@ router.get(
       `${canInline ? 'inline' : 'attachment'}; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(file.originalName)}`,
     );
 
+    if (req.method === 'HEAD') return res.end();
+
     return new Promise<void>((resolve, reject) => {
-      const stream = fs.createReadStream(absolute);
+      const stream = fs.createReadStream(absolute, { start, end });
       stream.on('error', reject);
       stream.on('end', resolve);
       stream.pipe(res);
