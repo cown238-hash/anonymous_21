@@ -21,6 +21,62 @@ function safeUrl(url: string): string {
   return trimmed;
 }
 
+/**
+ * Recognises a YouTube / Vimeo watch URL and returns the canonical embed src,
+ * or null when the line is not a supported video link.
+ *
+ * Only the id is taken from the URL, so nothing user-supplied reaches the
+ * iframe attributes — the host is hard-coded here and the id is restricted to
+ * the character sets those services actually use.
+ */
+function videoEmbedId(raw: string): { src: string; title: string } | null {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'https:') return null;
+
+  const host = url.hostname.replace(/^www\./, '');
+
+  let id: string | null = null;
+  if (host === 'youtube.com' || host === 'm.youtube.com') {
+    if (url.pathname === '/watch') id = url.searchParams.get('v');
+    else if (url.pathname.startsWith('/embed/')) id = url.pathname.slice('/embed/'.length);
+    else if (/^\/(shorts|live)\//.test(url.pathname)) {
+      id = url.pathname.split('/')[2] ?? null;
+    }
+  } else if (host === 'youtu.be') {
+    id = url.pathname.slice(1);
+  } else if (host === 'vimeo.com' || host === 'player.vimeo.com') {
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts[0] === 'video') id = parts[1] ?? null;
+    else if (host === 'player.vimeo.com' && parts[0]) id = parts[0];
+  }
+
+  if (!id || !/^[A-Za-z0-9_-]{4,20}$/.test(id)) return null;
+
+  const src =
+    host === 'vimeo.com' || host === 'player.vimeo.com'
+      ? `https://player.vimeo.com/video/${id}`
+      : `https://www.youtube-nocookie.com/embed/${id}`;
+  return { src, title: host === 'vimeo.com' ? 'Vimeo video' : 'YouTube video' };
+}
+
+/** A line that is nothing but a supported video link. */
+const BARE_VIDEO_LINE = /^\s*(https?:\/\/\S+)\s*$/;
+
+function renderVideoEmbed(raw: string): string {
+  const parsed = videoEmbedId(raw);
+  if (!parsed) return '';
+  return (
+    `<div class="video-embed"><iframe src="${parsed.src}" title="${parsed.title}" ` +
+    `loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture" ` +
+    `allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`
+  );
+}
+
 function renderInline(raw: string): string {
   let text = escapeHtml(raw);
 
@@ -121,6 +177,17 @@ export function renderMarkdown(source: string): string {
       continue;
     }
 
+    // Bare video link on its own line — embed instead of printing a URL.
+    const video = BARE_VIDEO_LINE.exec(line);
+    if (video) {
+      const embed = renderVideoEmbed(video[1]);
+      if (embed) {
+        out.push(embed);
+        i++;
+        continue;
+      }
+    }
+
     // Blank line
     if (!line.trim()) {
       i++;
@@ -181,7 +248,8 @@ export function renderMarkdown(source: string): string {
     while (
       i < lines.length &&
       lines[i].trim() &&
-      !/^(#{1,6}\s|```|>|\s*[-*+]\s|\s*\d+\.\s)/.test(lines[i])
+      !/^(#{1,6}\s|```|>|\s*[-*+]\s|\s*\d+\.\s)/.test(lines[i]) &&
+      !BARE_VIDEO_LINE.test(lines[i])
     ) {
       buffer.push(lines[i]);
       i++;

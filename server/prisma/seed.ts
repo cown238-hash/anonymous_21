@@ -17,6 +17,8 @@ const CATEGORIES = [
   { name: 'Product', slug: 'product', description: 'กลยุทธ์และการวางผลิตภัณฑ์', color: '#5eead4', sortOrder: 3 },
   { name: 'Data', slug: 'data', description: 'ข้อมูล การวิเคราะห์ และ ML', color: '#6ee7b7', sortOrder: 4 },
   { name: 'Community', slug: 'community', description: 'เรื่องเล่าและกิจกรรมของชุมชน', color: '#d1fae5', sortOrder: 5 },
+  { name: 'Files', slug: 'files', description: 'เอกสาร สเปรดชีต และไฟล์ที่แนบมาแบ่งปัน', color: '#6ee7f7', sortOrder: 6 },
+  { name: 'Video', slug: 'video', description: 'คลิป วิดีโอ และการฝังเครื่องเล่น', color: '#c4b5fd', sortOrder: 7 },
 ];
 
 const TAGS = [

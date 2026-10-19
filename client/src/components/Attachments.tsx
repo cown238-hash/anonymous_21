@@ -234,6 +234,9 @@ function AttachmentRow({
 }
 
 /** Read-only list shown on a published post. */
+/** Video types the post page can hand straight to a <video> player. */
+const PLAYABLE_VIDEO = new Set(['video/mp4', 'video/webm', 'video/ogg']);
+
 export function AttachmentList({ attachments }: { attachments: Attachment[] }) {
   if (attachments.length === 0) return null;
 
@@ -251,6 +254,42 @@ export function AttachmentList({ attachments }: { attachments: Attachment[] }) {
         {attachments.map((file) => {
           const kind = fileKindOf(file.name, file.mimeType);
           const Icon = KIND_ICON[kind];
+          // Clips play in place; everything else stays a download row.
+          if (PLAYABLE_VIDEO.has(file.mimeType)) {
+            return (
+              <li key={file.id} className="overflow-hidden rounded-xl border border-ink-500/12 bg-surface-1">
+                <video
+                  src={file.url}
+                  controls
+                  preload="metadata"
+                  playsInline
+                  className="aspect-video w-full bg-black"
+                >
+                  <a href={file.downloadUrl} download>
+                    {file.name}
+                  </a>
+                </video>
+                <div className="flex items-center gap-3 px-3 py-2">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-surface-2 text-brand-400">
+                    <Play size={16} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-ink-900">{file.name}</span>
+                    <span className="mt-0.5 block text-xs text-ink-400">วีดีโอ · {formatBytes(file.size)}</span>
+                  </span>
+                  <a
+                    href={file.downloadUrl}
+                    download
+                    className="shrink-0 text-ink-400 transition hover:text-brand-400"
+                    title="ดาวน์โหลด"
+                  >
+                    <Download size={15} />
+                  </a>
+                </div>
+              </li>
+            );
+          }
+
           return (
             <li key={file.id}>
               <a

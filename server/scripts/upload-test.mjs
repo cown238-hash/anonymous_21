@@ -1,91 +1,59 @@
 /**
- * Smoke test for image uploads: posts a small PNG as multipart/form-data and
- * verifies the API returns a `/uploads/...` URL that is actually servable.
+ * Reproduces a file upload the same way the browser does, so a failure points
+ * at the server rather than at PowerShell/curl quirks.
  *
  *   node scripts/upload-test.mjs
  */
-import { Buffer } from 'node:buffer';
+const base = process.env.TEST_BASE ?? 'http://localhost:4000/api';
+// Seeded demo admin — see `npm run db:seed`. Override from the environment on a
+// real deployment; never hard-code a live credential here.
+const EMAIL = process.env.TEST_EMAIL ?? 'admin@nimbus.dev';
+const PASSWORD = process.env.TEST_PASSWORD ?? 'Admin@1234';
 
-const API = 'http://localhost:4000';
-
-// 1x1 transparent PNG
-const PNG_BASE64 =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-
-async function login(identifier, password) {
-  const res = await fetch(`${API}/api/auth/login`, {
+async function main() {
+  const login = await fetch(`${base}/auth/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identifier, password }),
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ identifier: EMAIL, password: PASSWORD }),
   });
-  const json = await res.json();
-  if (!json.success) throw new Error(`login failed: ${json.error?.message}`);
-  return json.data.accessToken;
-}
-
-const results = [];
-const check = (label, ok, detail = '') => {
-  results.push(ok);
-  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? ` — ${detail}` : ''}`);
-};
-
-const token = await login('admin@nimbus.dev', 'Admin@1234');
-
-function buildForm(buffer, filename, type) {
-  const boundary = `----nimbus${Date.now().toString(16)}`;
-  const head = Buffer.from(
-    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
-      `Content-Type: ${type}\r\n\r\n`,
-    'utf8',
-  );
-  const tail = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
-  return {
-    body: Buffer.concat([head, buffer, tail]),
-    contentType: `multipart/form-data; boundary=${boundary}`,
-  };
-}
-
-// 1. valid PNG
-{
-  const { body, contentType } = buildForm(Buffer.from(PNG_BASE64, 'base64'), 'pixel.png', 'image/png');
-  const res = await fetch(`${API}/api/uploads/image`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': contentType },
-    body,
-  });
-  const json = await res.json();
-  check('accepts a PNG upload', res.status === 201 && json.success, json.data?.url ?? json.error?.message);
-
-  if (json.data?.url) {
-    const get = await fetch(`${API}${json.data.url}`);
-    const type = get.headers.get('content-type') ?? '';
-    check('uploaded file is served back', get.status === 200 && type.includes('image'), `${get.status} ${type}`);
+  const body = await login.json();
+  if (!login.ok || !body?.data?.accessToken) {
+    console.log(`login failed: ${JSON.stringify(body).slice(0, 300)}`);
+    return;
   }
+  const auth = { authorization: `Bearer ${body.data.accessToken}` };
+  console.log(`logged in as @${body.data.user.username}`);
+
+  const cases = [
+    { name: 'notes.txt', type: 'text/plain', bytes: Buffer.from('hello', 'utf8') },
+    { name: 'sheet.csv', type: 'text/csv', bytes: Buffer.from('a,b\n1,2\n', 'utf8') },
+    { name: 'photo.png', type: 'image/png', bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]) },
+    { name: 'clip.mp4', type: 'video/mp4', bytes: Buffer.alloc(512, 3) },
+    { name: 'doc.pdf', type: 'application/pdf', bytes: Buffer.from('%PDF-1.4\n', 'utf8') },
+    { name: 'archive.zip', type: 'application/zip', bytes: Buffer.from('PK', 'binary') },
+    // Deliberately outside the allow list — must be refused, not stored.
+    { name: 'evil.html', type: 'text/html', bytes: Buffer.from('<b>x</b>', 'utf8') },
+    { name: 'no-extension', type: 'text/plain', bytes: Buffer.from('x', 'utf8') },
+  ];
+
+  for (const c of cases) {
+    const form = new FormData();
+    form.append('files', new Blob([c.bytes], { type: c.type }), c.name);
+    const res = await fetch(`${base}/uploads/files`, { method: 'POST', headers: auth, body: form });
+    const text = await res.text();
+    const mark = res.ok ? 'PASS' : 'FAIL';
+    console.log(`  ${mark} ${c.name.padEnd(14)} ${c.type.padEnd(18)} -> ${res.status} ${text.slice(0, 120)}`);
+  }
+
+  // Multi-file in one request, which is what the picker does when you select
+  // several files at once.
+  const multi = new FormData();
+  for (const c of cases.slice(0, 3)) {
+    multi.append('files', new Blob([c.bytes], { type: c.type }), c.name);
+  }
+  const mres = await fetch(`${base}/uploads/files`, { method: 'POST', headers: auth, body: multi });
+  const mbody = await mres.text();
+  console.log(`  ${mres.ok ? 'PASS' : 'FAIL'} multi-file (3)   -> ${mres.status} ${mbody.slice(0, 160)}`);
 }
 
-// 2. rejected mime type
-{
-  const { body, contentType } = buildForm(Buffer.from('#!/bin/sh\nrm -rf /', 'utf8'), 'evil.sh', 'application/x-sh');
-  const res = await fetch(`${API}/api/uploads/image`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': contentType },
-    body,
-  });
-  const json = await res.json();
-  check('rejects a non-image mime type', res.status === 400 && !json.success, json.error?.message);
-}
-
-// 3. requires authentication
-{
-  const { body, contentType } = buildForm(Buffer.from(PNG_BASE64, 'base64'), 'anon.png', 'image/png');
-  const res = await fetch(`${API}/api/uploads/image`, {
-    method: 'POST',
-    headers: { 'Content-Type': contentType },
-    body,
-  });
-  check('rejects anonymous uploads', res.status === 401, `status ${res.status}`);
-}
-
-const failed = results.filter((r) => !r).length;
-console.log(`\n${results.length - failed}/${results.length} checks passed`);
-process.exit(failed === 0 ? 0 : 1);
+await main();

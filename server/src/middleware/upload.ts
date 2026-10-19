@@ -26,6 +26,9 @@ const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif']);
  * an unknown type is rejected rather than stored and served to other users.
  */
 const FILE_MIME = new Set([
+  // images — the same set the cover/avatar route and `isSafeInline` accept, so
+  // a picture dropped into the attachment picker is not rejected by type.
+  ...IMAGE_MIME,
   // documents
   'application/pdf',
   'application/msword',
@@ -94,6 +97,7 @@ const FILE_MIME = new Set([
 
 /** Everything an attachment may be, as one set — used by the extension check. */
 const FILE_EXT = new Set([
+  ...IMAGE_EXT,
   '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
   '.odt', '.ods', '.odp', '.rtf', '.epub',
   '.txt', '.md', '.csv', '.tsv', '.log', '.ini', '.html', '.htm', '.json', '.xml', '.yaml', '.yml',
@@ -105,16 +109,21 @@ const FILE_EXT = new Set([
   '.woff', '.woff2', '.ttf', '.otf',
 ]);
 
-/** Extensions we are willing to serve inline; everything else is a download. */
-export const INLINE_SAFE_EXT = new Set([...IMAGE_EXT]);
-
 /**
- * Types that are safe to hand back to a browser as an attachment. Text-like
- * types are excluded because a browser may render them despite the
- * `Content-Disposition: attachment` header being ignored by some clients.
+ * Media types we are willing to serve inline. Images and video cannot carry
+ * script the way HTML or SVG can, so a `<video>`/`<img>` tag can point straight
+ * at the download route. Everything else is forced to `attachment` — browsers
+ * ignore that header for some text types, so those must never be sent inline.
  */
+const VIDEO_MIME = new Set(['video/mp4', 'video/webm', 'video/ogg']);
+
 export function isSafeInline(mimeType: string): boolean {
-  return IMAGE_MIME.has(mimeType);
+  return IMAGE_MIME.has(mimeType) || VIDEO_MIME.has(mimeType);
+}
+
+/** True for the attachment types the post page renders in a player. */
+export function isPlayableVideo(mimeType: string): boolean {
+  return VIDEO_MIME.has(mimeType);
 }
 
 export function assertAllowedFile(mimetype: string, originalname: string): void {
