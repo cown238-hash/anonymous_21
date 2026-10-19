@@ -44,6 +44,22 @@ const bool = z
   .optional()
   .transform((v) => v === 'true' || v === '1');
 
+/**
+ * The shipped `.env` templates list optional keys as bare `KEY=` placeholders,
+ * so a blank value has to mean "not configured" rather than "empty string".
+ * Without this, an empty `SMTP_PORT` coerces to 0, fails `positive()`, and the
+ * server refuses to boot on a config nobody considers wrong.
+ */
+const blankToUndefined = (v: unknown) =>
+  typeof v === 'string' && v.trim() === '' ? undefined : v;
+
+const blank = z.preprocess(blankToUndefined, z.string().optional());
+
+const blankPort = z.preprocess(
+  blankToUndefined,
+  z.coerce.number().int().positive().optional(),
+);
+
 const csv = z
   .string()
   .optional()
@@ -86,11 +102,11 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 
   // ---- Email (SMTP). Unset -> emails are written to the log instead. ----
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_HOST: blank,
+  SMTP_PORT: blankPort,
   SMTP_SECURE: bool,
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
+  SMTP_USER: blank,
+  SMTP_PASS: blank,
   MAIL_FROM: z.string().default('WKSL <no-reply@nimbus.local>'),
 
   // ---- Feature toggles ----
@@ -120,6 +136,13 @@ const schema = z.object({
   LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
   PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(1440).default(60),
   EMAIL_VERIFY_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(48),
+
+  /// Emit `includeSubDomains` and `preload` on the HSTS header. Off by default
+  /// because the app is served from a subdomain: a browser cannot preload a
+  /// subdomain, and `includeSubDomains` there would only cover `*.that-host`
+  /// while reading like a promise about the whole domain. Turn it on when the
+  /// app really is the apex (or you want to force HTTPS on its own children).
+  HSTS_INCLUDE_SUBDOMAINS: bool,
 
   /// Failed auth attempts per IP per window. The account test deliberately
   /// triggers three failures per run, so a local machine running it repeatedly

@@ -78,7 +78,16 @@ export function createApp() {
         },
       },
       referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-      hsts: env.isProd ? { maxAge: 15_552_000, includeSubDomains: true, preload: true } : false,
+      // Preloading is a statement about a whole registrable domain and
+      // `includeSubDomains` only reaches `*.this-host`, so both are opt-in: a
+      // subdomain deployment should not claim what it cannot deliver.
+      hsts: env.isProd
+        ? {
+            maxAge: 15_552_000,
+            includeSubDomains: env.HSTS_INCLUDE_SUBDOMAINS,
+            preload: env.HSTS_INCLUDE_SUBDOMAINS,
+          }
+        : false,
       crossOriginOpenerPolicy: { policy: 'same-origin' },
     }),
   );
