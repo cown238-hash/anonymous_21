@@ -274,6 +274,14 @@
   .prose-wksl hr {
     @apply border-ink-500/15;
   }
+  /* A bare YouTube/Vimeo link becomes this block instead of a bare URL. */
+  .prose-wksl .video-embed {
+    @apply my-6 overflow-hidden rounded-xl border border-ink-500/12 bg-surface-0;
+    aspect-ratio: 16 / 9;
+  }
+  .prose-wksl .video-embed iframe {
+    @apply h-full w-full border-0;
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -324,6 +332,43 @@
 
   .animate-pop {
     @apply animate-[pop_0.2s_cubic-bezier(0.16,1,0.3,1)_both];
+  }
+
+  /* Entrance for the sign-in page: one soft rise, eased out. */
+  .animate-rise {
+    @apply animate-[fadeUp_0.6s_cubic-bezier(0.16,1,0.3,1)_both];
+  }
+
+  /**
+   * Staggers an entrance across direct children. Kept to a handful of steps so
+   * a long list still finishes inside a second.
+   */
+  .stagger-children > * {
+    animation: fadeUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+  .stagger-children > *:nth-child(2) { animation-delay: 0.12s; }
+  .stagger-children > *:nth-child(3) { animation-delay: 0.19s; }
+  .stagger-children > *:nth-child(4) { animation-delay: 0.26s; }
+  .stagger-children > *:nth-child(5) { animation-delay: 0.33s; }
+  .stagger-children > *:nth-child(6) { animation-delay: 0.4s; }
+  .stagger-children > *:nth-child(n + 7) { animation-delay: 0.47s; }
+
+  /* Drifting blurred blobs behind the form and the marketing panel. */
+  .auth-orb {
+    @apply pointer-events-none absolute rounded-full blur-3xl;
+  }
+
+  /* Cards that nudge up on hover; the transition lives with the keyframes. */
+  .hover-lift {
+    transition:
+      transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.25s ease,
+      background-color 0.25s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-3px);
+    @apply border-brand-500/35 bg-brand-500/[0.04];
   }
 
   @keyframes pop {
@@ -497,6 +542,14 @@
     .animate-blink-soft {
       animation: none;
     }
+    /* A one-shot entrance is still motion: land it immediately instead. */
+    .animate-rise,
+    .stagger-children > * {
+      animation: none;
+    }
+    .hover-lift:hover {
+      transform: none;
+    }
     .animate-gradient-flow {
       background-position: 0% 50%;
     }
@@ -511,6 +564,15 @@
   html[data-motion='off'] .animate-drift-b,
   html[data-motion='off'] .animate-float-y {
     animation: none;
+  }
+
+  /* The sign-in page entrance is opt-out too: "off" should land it instantly. */
+  html[data-motion='off'] .animate-rise,
+  html[data-motion='off'] .stagger-children > * {
+    animation: none;
+  }
+  html[data-motion='off'] .hover-lift:hover {
+    transform: none;
   }
   html[data-motion='on'] .animate-drift-a {
     animation: drift-a 9s ease-in-out infinite;

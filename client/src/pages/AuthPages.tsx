@@ -50,13 +50,6 @@ export function LoginPage() {
     }
   };
 
-  const fillDemo = (id: string, pw: string) => {
-    setIdentifier(id);
-    setPassword(pw);
-    setError(null);
-    setChallenge(false);
-  };
-
   return (
     <AuthShell
       title={challenge ? 'ยืนยันตัวตน' : 'ยินดีต้อนรับกลับ'}
@@ -75,7 +68,11 @@ export function LoginPage() {
       }
     >
       <form onSubmit={submit} className="space-y-4">
-        {error && <Alert>{error.message}</Alert>}
+        {error && (
+          <div className="animate-pop">
+            <Alert>{error.message}</Alert>
+          </div>
+        )}
 
         {!challenge ? (
           <>
@@ -127,7 +124,7 @@ export function LoginPage() {
             </div>
           </>
         ) : (
-          <div>
+          <div className="animate-pop">
             <div className="mb-4 flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-2.5 text-xs text-ink-500">
               <ShieldCheck size={15} className="text-brand-400" />
               บัญชี <strong className="font-medium">{identifier}</strong> เปิด 2FA ไว้
@@ -163,32 +160,6 @@ export function LoginPage() {
           {challenge ? 'ยืนยันและเข้าสู่ระบบ' : 'เข้าสู่ระบบ'}
         </button>
       </form>
-
-      {!challenge && (
-        <div className="mt-6 rounded-xl border border-ink-500/12 bg-surface-2/60 p-3.5">
-          <p className="mb-2 text-xs font-semibold tracking-wide text-ink-500 uppercase">
-            บัญชีทดลองใช้งาน
-          </p>
-          <div className="flex flex-col gap-1.5">
-            <button
-              type="button"
-              onClick={() => fillDemo('admin@nimbus.dev', 'Admin@1234')}
-              className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition hover:bg-surface-1"
-            >
-              <span className="font-medium">admin@nimbus.dev</span>
-              <span className="font-mono text-ink-400">Admin@1234</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => fillDemo('sara@nimbus.dev', 'Password@123')}
-              className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition hover:bg-surface-1"
-            >
-              <span className="font-medium">sara@nimbus.dev</span>
-              <span className="font-mono text-ink-400">Password@123</span>
-            </button>
-          </div>
-        </div>
-      )}
     </AuthShell>
   );
 }
