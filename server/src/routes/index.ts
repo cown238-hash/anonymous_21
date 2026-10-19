@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import authRoutes from './auth.routes.js';
 import twoFactorRoutes from './two-factor.routes.js';
+import ageGateRoutes from './age-gate.routes.js';
 import userRoutes from './users.routes.js';
 import postRoutes from './posts.routes.js';
 import commentRoutes from './comments.routes.js';
@@ -14,21 +15,24 @@ import statsRoutes from './stats.routes.js';
 import opsRoutes from './ops.routes.js';
 import telemetryRoutes from './telemetry.routes.js';
 import reportRoutes from './reports.routes.js';
+import { requireAgeGate } from '../middleware/age-gate.js';
 
 const router = Router();
 
 // Operational endpoints (health / ready / metrics).
 router.use('/', opsRoutes);
 
-// Public or shared.
+// Public or shared. The gate endpoint itself must stay reachable, otherwise a
+// visitor could never answer it.
 router.use('/auth', authRoutes);
-router.use('/users', userRoutes);
-router.use('/posts', postRoutes);
-router.use('/posts/:postId/comments', commentRoutes);
-router.use('/categories', categoriesRouter);
-router.use('/tags', tagsRouter);
+router.use('/age-gate', ageGateRoutes);
+router.use('/users', requireAgeGate, userRoutes);
+router.use('/posts', requireAgeGate, postRoutes);
+router.use('/posts/:postId/comments', requireAgeGate, commentRoutes);
+router.use('/categories', requireAgeGate, categoriesRouter);
+router.use('/tags', requireAgeGate, tagsRouter);
 router.use('/notifications', notificationRoutes);
-router.use('/stats', statsRoutes);
+router.use('/stats', requireAgeGate, statsRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/reports', reportRoutes);
 router.use('/collect', telemetryRoutes);

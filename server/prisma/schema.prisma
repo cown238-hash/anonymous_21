@@ -91,6 +91,7 @@ model User {
   reports            Report[]       @relation("ReportReporter")
   auditLogs          AuditLog[]     @relation("AuditActor")
   uploads            Attachment[]   @relation("AttachmentUploader")
+  ageChecks          AgeCheck[]
 
   @@index([createdAt])
   @@index([deletedAt])
@@ -161,6 +162,31 @@ model AuditLog {
 
   @@index([action, createdAt])
   @@index([targetType, targetId])
+}
+
+/// One confirmation of the age gate.
+///
+/// Deliberately narrow: the birth date the visitor typed is used to decide the
+/// answer and then thrown away, and the address is kept only as a keyed hash so
+/// the same visitor is recognised on their next visit. Nothing here can be read
+/// back as a date of birth.
+model AgeCheck {
+  id        String   @id @default(cuid())
+  /// Random value mirrored into the visitor's httpOnly cookie. Also the key an
+  /// IP match hands out, which is why it is unguessable.
+  token     String   @unique
+  /// The threshold this check was made against, so raising the minimum age
+  /// later invalidates the confirmations made under the old one.
+  minAge    Int
+  /// HMAC of the request address. Null when the address was unavailable.
+  ipHash    String?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([ipHash, expiresAt])
+  @@index([expiresAt])
 }
 
 model Report {

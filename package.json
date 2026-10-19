@@ -24,6 +24,7 @@
     "test": "npm run test --workspace server",
     "test:unit": "npm run test:unit --workspace server",
     "test:e2e": "npm run test:e2e --workspace server",
+    "test:agegate": "npm run test:agegate --workspace server",
     "setup": "npm install && npm run db:deploy && npm run db:seed",
     "typecheck": "npm run typecheck --workspace server && npm run typecheck --workspace client",
     "db:deploy": "npm run db:deploy --workspace server",

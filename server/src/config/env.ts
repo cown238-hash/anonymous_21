@@ -97,6 +97,24 @@ const schema = z.object({
   EMAIL_VERIFICATION_REQUIRED: bool,
   TWO_FACTOR_ISSUER: z.string().default('WKSL'),
 
+  // ---- Age gate ----
+  /// Confirms the visitor is old enough before the reading routes answer.
+  /// Off unless set, so development, the test suite and any deployment that has
+  /// not opted in behave exactly as before.
+  AGE_GATE_ENABLED: bool,
+  AGE_GATE_MIN_AGE: z.coerce.number().int().min(13).max(21).default(18),
+  /// How long an accepted confirmation lasts before the visitor answers again.
+  AGE_GATE_TTL_DAYS: z.coerce.number().int().min(1).max(3650).default(365),
+  /// Recognise a returning visitor by a keyed hash of their address. On by
+  /// default (it is what makes the gate survive a cleared cookie); set it to
+  /// `false` to require a fresh answer on every new browser, at the cost of
+  /// letting anyone sharing an address — office, school, CGNAT — inherit the
+  /// confirmation their neighbour gave.
+  AGE_GATE_IP_BINDING: z
+    .string()
+    .optional()
+    .transform((v) => v !== 'false' && v !== '0'),
+
   // ---- Security policy ----
   LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(8),
   LOGIN_LOCK_MINUTES: z.coerce.number().int().min(1).max(1440).default(15),
