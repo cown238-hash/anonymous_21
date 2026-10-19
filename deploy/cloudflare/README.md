@@ -13,11 +13,11 @@ browser ──https──▶ Cloudflare (TLS, cache, WAF, rate limit ขอบ)
                         app container :4000 (loopback)
 ```
 
-ทำตามทีละข้อ แล้วกำลังสุดท้ายจะได้ `https://wksl.site` ที่แชทเรียลไทม์ (Socket.IO)
+ทำตามทีละข้อ แล้วในที่สุดจะได้ `https://wksl.site` ที่แชทเรียลไทม์ (Socket.IO)
 ใช้งานได้ปกติ
 
 > ส่วนที่ต้องทำในบัญชี Cloudflare ผมทำแทนไม่ได้ทุกขั้น — ทุกขั้นมีเมนูให้กดตามนี้เลย
-> ถ้าจะใช้ CLI แทน dashboard ก็ `flair` / `flarectl` ทำได้มากรอง specs เดียวกัน
+> ถ้าจะใช้ CLI แทน dashboard ก็ใช้ `flarectl` ทำได้เหมือนกัน
 
 ---
 
@@ -26,6 +26,8 @@ browser ──https──▶ Cloudflare (TLS, cache, WAF, rate limit ขอบ)
 - บัญชี Cloudflare (ฟรี) — <https://dash.cloudflare.com/sign-up>
 - VM (Oracle) ที่รัน stack ไว้แล้วและทราบ **IP คงที่** ของมัน
 - บัญชี registrar ที่จดโดเมน `wksl.site` อยู่ (ที่ที่ซื้อโดเมนมา) — เอาไว้แก้ nameserver
+
+> ถ้า site ใน Cloudflare ขึ้น **Active** แล้ว (NS ชี้มาแล้ว) ให้ข้ามข้อ 1–2 แล้วไปเริ่มที่ข้อ 3 ได้เลย
 
 ## 1. เพิ่ม domains เข้า Cloudflare
 
@@ -36,17 +38,17 @@ browser ──https──▶ Cloudflare (TLS, cache, WAF, rate limit ขอบ)
 
 ## 2. เปลี่ยน nameserver ที่ registrar
 
-ที่หน้าจัดการโดเมนของ tempatที่ซื้อ (Namecheap / GoDaddy / Hostinger / THNIC ฯลฯ):
+ที่หน้าจัดการโดเมนของร้านที่ซื้อ (Namecheap / GoDaddy / Hostinger / Onamae / THNIC ฯลฯ):
 
 1. หาหน้า **Nameservers** / **DNS** → เลือก **Custom DNS** (ไม่ใช่ default parking)
 2. วาง nameserver 2 ตัวจากข้อ 1 ทั้งสองช่อง แล้ว Save
 
- Propagate ใช้ไม่กี่นาที τέ达到了ครึ่งชม. เช็คสถานะที่หน้า site ใน
-Cloudflare เป็น **Active** แล้วค่อยทำข้อถัดไป พระ状況: ถ้า registrar ไทยที่คุย
+ Propagate ใช้ไม่กี่นาที ถึงครึ่งชั่วโมง เช็คสถานะที่หน้า site ใน
+Cloudflare เป็น **Active** แล้วค่อยทำข้อถัดไป หมายเหตุ: ถ้า registrar ไทยที่คุย
 กับ registry ช้า อาจนานที่สุด ~24 ชม.
 
 > ระหว่างนี้**อย่าแก้ DNS ที่ registrar เดิม** — จากนี้ DNS ทั้งหมดจัดการที่ Cloudflare
-> แทน ถ้าแก้ทั้งสองที่อาจคำนวณผิดพลาดได้
+> แทน ถ้าแก้ทั้งสองที่อาจทำให้สับสนและผิดพลาดได้
 
 ## 3. สร้าง DNS records
 
@@ -57,11 +59,11 @@ Cloudflare เป็น **Active** แล้วค่อยทำข้อถั
 | `A` | `@` | `<IP ของ VM Oracle>` | **Proxied** | Auto |
 | `CNAME` | `www` | `wksl.site` | **Proxied** | Auto |
 
-- **หัวใจคือ "Proxied"** (云ส้ม) ถ้าเป็น DNS only (เมฆเทา) traffic จะเดินตรงเข้า VM
-  ไม่ผ่าน Cloudflare เลย — ยิ่งเจอบัญชีใหม่บ่อยครั้งที่ default เป็น Proxied อยู่แล้ว ให้เช็คให้ชัวร์
+- **หัวใจคือ "Proxied"** (เมฆส้ม) ถ้าเป็น DNS only (เมฆเทา) traffic จะเดินตรงเข้า VM
+  ไม่ผ่าน Cloudflare เลย — บัญชีใหม่มักตั้ง default เป็น Proxied อยู่แล้ว แต่ให้เช็คให้ชัวร์
 - ไม่ต้องทำ AAAA (IPv6) เว้นแต่ VM มี IPv6 จริง
-- ถ้าติดตั้ง Caddy บน VM ยังไม่เสร็จ ให้ชั่วคราวพา A record ไว้ก่อนก็ได้ DNS จะ resolve
-  พอ VM พร้อม ปล่อยให้ผ่าน
+- ถ้าติดตั้ง Caddy บน VM ยังไม่เสร็จ จะเปิด A record ไว้ก่อนก็ได้ DNS จะ resolve ตามที่ตั้งไว้
+  พอ VM พร้อมก็ใช้งานได้ทันที
 
 ## 4. SSL/TLS — ตั้งเป็น **Full (strict)**
 
@@ -69,11 +71,11 @@ Cloudflare เป็น **Active** แล้วค่อยทำข้อถั
 
 | ตัวเลือก | ตั้งเป็น | ทำไม |
 | --- | --- | --- |
-| Encryption mode | **Full (strict)** | เช็คใบรับรองที่ origin จริง Caddy บน VM มี Let['s Encrypt] ของตัวเองอยู่แล้ว จึงตอบ Grove ปลอดภัยทั้งสองข้าง |
+| Encryption mode | **Full (strict)** | ตรวจใบรับรองที่ origin จริง Caddy บน VM มีใบของ Let's Encrypt อยู่แล้ว จึงปลอดภัยทั้งสองฝั่ง |
 | ~~Flexible~~ | **ห้ามใช้** | จะส่ง traffic จาก Cloudflare มา VM เป็น HTTP เปล่า — webhook ไม่ปลอดภัย และทำให้ redirect วน |
 | ~~Full~~ | ไม่พอ | ไม่ตรวจใบที่ origin |
 
-ยืนยันใบรับริงปลายทางกว่าสมบูรณ์:
+ยืนยันว่าใบรับรองปลายทางสมบูรณ์:
 
 ```bash
 curl -fsS https://wksl.site/api/ready    # ต้องได้ {"success":true,...} ไม่ใช่ error 525/526
@@ -97,17 +99,17 @@ curl -fsS https://wksl.site/api/ready    # ต้องได้ {"success":true
 | --- | --- |
 | Brotli | **On** |
 | Rocket Loader | **Off** — ตัวนี้รวม/หน่วงการทำงาน JS ทำให้ React app พังเงียบ ๆ |
-| Auto Minify (JS/CSS/HTML) | ปิดก็ได้ — Vite minify ให้หมดแล้ว พิกสูง |
+| Auto Minify (JS/CSS/HTML) | ปิดก็ได้ — Vite minify ให้หมดแล้ว (minify ซ้ำอาจทำให้ JS พัง) |
 | Early Hints | On (ตามชอบ) |
 
 ## 6. Cache rules — สำคัญที่สุดข้อนี้
 
-domain ที่ proxied ระดับ CDN default จะ cache เฉพาะไฟล์ที่มีนามสกาน static
-(`.js`, `.css`, `.png` ...) ซึ่ง `/sw.js` ของ PWA กับ `/api/*` ก็เข้าร่วม —
+โดเมนที่ proxied ระดับ CDN โดย default จะ cache เฉพาะไฟล์ที่มีนามสกุล static
+(`.js`, `.css`, `.png` ...) ซึ่ง `/sw.js` ของ PWA กับ `/api/*` ก็เข้าเกณฑ์ไปด้วย —
 
 เมนู **Caching → Cache rules → Create rule** ทำ 4 กติกา นี้:
 
-**Rule 1 — app bundle (cache ได้是因为มี hash ในชื่อไฟล์)**
+**Rule 1 — app bundle (cache ได้เพราะมี hash ในชื่อไฟล์)**
 
 | ตัว | ค่า |
 | --- | --- |
@@ -124,7 +126,7 @@ domain ที่ proxied ระดับ CDN default จะ cache เฉพา�
 | When | URI Path starts with `/api/` |
 | Cache eligibility | **Bypass cache** |
 
-**Rule 3 — ตัว history แบบเรียลไทม์ ห้าม cache**
+**Rule 3 — ตัวเรียลไทม์ (Socket.IO) ห้าม cache**
 
 | ตัว | ค่า |
 | --- | --- |
@@ -140,17 +142,17 @@ domain ที่ proxied ระดับ CDN default จะ cache เฉพา�
 | When | Hostname equals `wksl.site` **AND** URI Path is in (`/sw.js`, `/manifest.webmanifest`, `/offline.html`) |
 | Cache eligibility | **Bypass cache** |
 
-ภาพปก/รูปโปรไฟล์ (`/uploads/...`) — app ตืดเองว่า cache นานเท่าไหร่ (30 วัน, ชื่อไฟล์สุ่มไม่ซ้ำ)
+ภาพปก/รูปโปรไฟล์ (`/uploads/...`) — app เป็นตัวกำหนดเองว่า cache นานเท่าไหร่ (30 วัน, ชื่อไฟล์สุ่มไม่ซ้ำ)
 ปล่อย default ใช้ origin header ก็ได้ ถ้าไม่อยากให้ edge ค้างไฟล์ที่ถูกลบเป็นเวลา 30 วัน
 เพิ่ม rule ที่ห้า: `Eligible for cache` + Edge TTL `1 day` (ไม่บังคับ)
 
 > ทดสอบว่า rule ใช้ได้: `curl -sI https://wksl.site/assets/... | grep -i cf-cache-status`
-> ไฟล์ที่มีของ Vite ควรได้ `HIT` (ยenniumครั้งแรกเป็น `MISS`) ส่วน `/api/posts`
+> ไฟล์ที่มี hash ของ Vite ควรได้ `HIT` (ครั้งแรกเป็น `MISS`) ส่วน `/api/posts`
 > ต้องได้ `BYPASS` หรือ `DYNAMIC`
 
 ## 7. ล็อก origin ให้เข้าผ่าน Cloudflare เท่านั้น
 
-default ตอนนี้ VM ยังเปิด 80/443 ให้ทั้งอินเทอร์เน็ต — ใครรู้ IP ก็ยิงมา originalen
+ตอนนี้ VM ยังเปิด 80/443 ให้ทั้งอินเทอร์เน็ต — ใครรู้ IP ก็ยิงมาตรง ๆ ได้
 โดยไม่ต้องผ่าน Cloudflare ทำ 2 ที่:
 
 1. **VM (iptables)** — บน VM:
@@ -159,11 +161,11 @@ default ตอนนี้ VM ยังเปิด 80/443 ให้ทั้ง
    LOCK_TO_CLOUDFLARE=true bash deploy/oracle/bootstrap.sh
    ```
 
-   (ตั้งใจล่วงว่า VM ตอบ Cloudflare challenge ได้อยู่แล้ว ไม่งั้น Let's Encrypt จะออกใบไม่ผ่าน —
-   เรียนกว่าตั้งให้เสร็จใบก่อน แล้วค่อยมาล็อก)
+   (แนะนำให้ออกใบรับรองให้เสร็จก่อน แล้วค่อยมาล็อก ไม่งั้น Let's Encrypt จะตรวจไม่ผ่าน
+   เพราะตอบ Cloudflare challenge ไม่ได้)
 
 2. **Oracle VCN Security List** (ชั้นที่สองที่คนมักลืม) — ตั้ง ingress 80/443 ให้
-   source `0.0.0.0/0` เหมือนเดิมได้ แต่ถ้าอยากเท `iptables` เป๊ะ ๆ ให้นำ
+   source `0.0.0.0/0` เหมือนเดิมได้ แต่ถ้าอยากให้ตรงกับ `iptables` เป๊ะ ๆ ก็นำ
    [Cloudflare IP ranges](https://www.cloudflare.com/ips/) มาลงเป็น CIDR แทนได้
 
 เช็คว่าล็อกแล้ว:
@@ -183,13 +185,13 @@ cd ~/app && nano .env
 PUBLIC_URL=https://wksl.site
 CLIENT_ORIGINS=https://wksl.site,https://www.wksl.site
 # Cloudflare → Caddy → app = 2 hops ไม่งัน rate limiter จะนับ IP ของ Cloudflare
-# แทน IP ผู้ใช้ (คนละกันutungละเม็ดอาจล็อกทั้งระบบ)
+# แทน IP ผู้ใช้ (คนละกับผู้ใช้จริง อาจล็อกทั้งระบบผิดคน)
 TRUST_PROXY_HOPS=2
 ```
 
 > `TRUST_PROXY_HOPS` อ่านแล้วใส่ทั้ง Express (`req.ip`) และ express-rate-limit
 > เดิม `TRUST_PROXY=true` คุมแค่ฝั่งเดียว — ถ้าเว็บขึ้นแล้วเจอ error
-> `429 Too many requests` บันได้ปลายเหตุมาจากจุดนี้
+> `429 Too many requests` สาเหตุปลายทางมักมาจากจุดนี้
 
 แล้ว up ใหม่และตรวจ:
 
@@ -199,7 +201,7 @@ curl -fsS https://wksl.site/api/ready
 curl -sI https://wksl.site/ | grep -iE 'strict-transport|cache-control|cf-cache-status'
 ```
 
-เปิดเบราว์เซอร์: ล็อกอิน → เข้า `/chat` ส่งข้อความ → เปิดสองแท็บดูว่าขึ้นที่ละครึ่งทันที
+เปิดเบราว์เซอร์: ล็อกอิน → เข้า `/chat` ส่งข้อความ → เปิดสองแท็บดูว่าข้อความขึ้นทั้งสองแท็บทันที
 
 ## 9. อีเมล (ถ้าจะเปิดยืนยันตัวตนจริง)
 
@@ -225,7 +227,7 @@ curl -sI https://wksl.site/ | grep -iE 'strict-transport|cache-control|cf-cache-
 | หน้าเว็บ | favicon + โลโก้โหลด ปุ่ม login ใช้ได้ |
 | `/chat` ส่งข้อความข้ามแท็บ | ทันที ไม่มี error ใน devtools |
 | devtools → Application → Service Workers | `activated` (cache rule ข้อ 6 ทำถูก) |
-| ทดสอบ直: เบราว์เซอร์กด `https://www.wksl.site` | ขึ้นปกติ ไม่มีปน certificate error |
+| ทดสอบ: เปิดเบราว์เซอร์ไปที่ `https://www.wksl.site` | ขึ้นปกติ ไม่มี certificate error |
 
 ### ตรวจว่า IP จริงถึง server (สำคัญ)
 
@@ -234,7 +236,7 @@ docker compose -f docker-compose.yml -f deploy/oracle/compose.oracle.yml logs ap
 ```
 
 ใน log ทุก request จะเห็น `ip` เป็น IP ของผู้ใช้จริง ไม่ใช่ `172.68.x.x`
-(Cloudflare edge) ถ้าเป็นหมายความว่า `TRUST_PROXY_HOPS` ไม่เท่าจำนวน proxy
+(Cloudflare edge) ถ้าเห็นเป็น IP ของ Cloudflare แปลว่า `TRUST_PROXY_HOPS` ไม่ตรงกับจำนวน proxy
 
 ---
 
@@ -246,11 +248,11 @@ docker compose -f docker-compose.yml -f deploy/oracle/compose.oracle.yml logs ap
 | ปุ่มอะไรก็กดไม่ได้, `429` ทันที | `TRUST_PROXY_HOPS=1` ขณะ Cloudflare อยู่หน้า — rate limit รวม IP edge | ตั้ง `2` แล้ว `up -d` |
 | แชทขึ้น spinner ไม่มีข้อความ | WebSockets ปิดที่ Cloudflare | Network → WebSockets → On |
 | กดแล้วเป็นหน้า error / CSS หาย | Apt-Cloudflare Rocket Loader ยัง On | ขั้นตอนที่ 5 ตั้ง Off |
-| SW แจ้ง "new content available" กาก |
+| SW แจ้ง "new content available" ค้าง | service worker ยังเป็นไฟล์เก่าเพราะถูก cache ไว้ | ขั้นตอนที่ 6 ตั้ง rule 4 (`pwa-bypass`) แล้ว hard reload |
 | เมลยืนยันลิงก์ชี้ `localhost` | `PUBLIC_URL` ยังเป็นค่าเดิม | ตั้ง `https://wksl.site` ใน `.env` แล้ว rebuild |
 | `ERR_TOO_MANY_REDIRECTS` | SSL mode เป็น Flexible | ตั้ง Full (strict) ขั้นตอนที่ 4 |
 | `www` ไม่งาน | ไม่มี record / proxied ไม่ตรง | อย่าให้ `www` เป็น DNS-only ถ้าตั้ง Caddy รองรับ 2 host (ทำไว้แล้ว) |
 
 ถ้าจะลอง Workers/Pages เต็มรูปแบบทีหลัง (แชทย้ายไป Durable Objects, ไฟล์ย้าย R2)
 ค่อยบอกได้ แต่ Stack แบบนี้รันได้เต็มความสามารถบน configuration นี้แล้ว
-— __ถ่ายรูปลง log มาได้เลยตอนติดปัญหาถีbikte滲__
+— __ถ่ายรูปหรือแนบ log มาได้เลยตอนเจอปัญหา__
