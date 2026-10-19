@@ -22,9 +22,13 @@ const ingestSchema = z.object({
 });
 
 /**
- * POST /api/client-errors
+ * POST /api/collect/client-errors
  * Collects unhandled frontend errors. Without an ERROR_REPORT_ENDPOINT the
  * payload is only logged, which keeps local development self-contained.
+ *
+ * Mounted under `/api/collect` (see routes/index.ts), so the paths below are
+ * relative to that prefix — the client asks for `/api/collect` and
+ * `/api/collect/config`, and the two must agree.
  */
 router.post(
   '/client-errors',
@@ -75,7 +79,7 @@ const analyticsSchema = z.object({
  * IP is truncated to /24 so it is useful for rough geo without identifying.
  */
 router.post(
-  '/collect',
+  '/',
   asyncHandler(async (req, res) => {
     const event = analyticsSchema.parse(req.body);
 
@@ -104,7 +108,7 @@ router.post(
 
 /** GET /api/collect/config - tells the client whether to send events at all. */
 router.get(
-  '/collect/config',
+  '/config',
   asyncHandler(async (_req, res) => {
     return ok(res, { enabled: Boolean(env.ANALYTICS_ENDPOINT), appVersion: '1.0.0' });
   }),

@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -16,8 +17,35 @@ import { globalLimiter } from './middleware/rate-limit.js';
 import { requestContext } from './middleware/request-context.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 
+/**
+ * `script-src` hashes for the inline scripts in the built `index.html`.
+ *
+ * The theme bootstrap has to run before the first paint, which means inline —
+ * and our CSP allows no inline script without a hash. Deriving the hash from the
+ * file we are about to serve keeps the two in step: editing the snippet cannot
+ * silently desync the way a hand-copied hash would, and there is still no
+ * `'unsafe-inline'` in the policy.
+ */
+function inlineScriptHashes(html: string): string[] {
+  const hashes: string[] = [];
+  const pattern = /<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/gi;
+  let match = pattern.exec(html);
+  while (match !== null) {
+    hashes.push(`'sha256-${crypto.createHash('sha256').update(match[1] ?? '', 'utf8').digest('base64')}'`);
+    match = pattern.exec(html);
+  }
+  return hashes;
+}
+
 export function createApp() {
   const app = express();
+
+  const clientDist = path.resolve(env.serverRoot, '..', 'client', 'dist');
+  const indexHtml = path.join(clientDist, 'index.html');
+  const hasClientBuild = fs.existsSync(indexHtml);
+  const inlineHashes = hasClientBuild
+    ? inlineScriptHashes(fs.readFileSync(indexHtml, 'utf8'))
+    : [];
 
   // Cloudflare → Caddy → app is two hops, so read the hop count from config
   // instead of hard-coding one — otherwise `req.ip` stays on the edge address.
@@ -40,7 +68,9 @@ export function createApp() {
           formAction: ["'self'"],
           // Vite injects styles at runtime in dev; the built CSS is self-hosted.
           styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
+          // 'self' plus the hashes of the inline scripts actually present in the
+          // index.html we serve — currently the anti-flash theme bootstrap.
+          scriptSrc: ["'self'", ...inlineHashes],
           imgSrc: ["'self'", 'data:', 'blob:'],
           connectSrc: ["'self'", 'ws:', 'wss:'],
           fontSrc: ["'self'", 'data:'],
@@ -104,10 +134,7 @@ export function createApp() {
   app.use('/api', globalLimiter, attachUser, routes);
 
   // In production the API also serves the built client.
-  const clientDist = path.resolve(env.serverRoot, '..', 'client', 'dist');
-  const indexHtml = path.join(clientDist, 'index.html');
-
-  if (fs.existsSync(clientDist)) {
+  if (hasClientBuild) {
     app.use(
       express.static(clientDist, {
         index: false,
