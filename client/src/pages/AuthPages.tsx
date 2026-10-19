@@ -1,16 +1,109 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../lib/auth';
-import { ApiError } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { analytics } from '../lib/telemetry';
 import { useSeo } from '../lib/seo';
 import { Alert } from '../components/ui';
 import { AuthShell } from './AuthShell';
 
+/**
+ * Google's mark, drawn inline. An <img> would need the image host in the CSP,
+ * and the policy deliberately allows no third-party images.
+ */
+function GoogleMark() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 48 48" aria-hidden="true">
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.3 17.6 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v7.8h12.5c-.3 2.1-1.6 5.2-4.6 7.3l7.6 5.9c4.5-4.2 6.6-10.3 6.6-16.9z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.4 28.7A14.6 14.6 0 0 1 9.6 24c0-1.6.3-3.2.8-4.7l-7.8-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.8-6.1z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2 1.4-4.7 2.4-8.3 2.4-6.4 0-11.7-3.8-13.6-9.8l-7.8 6.1C6.5 42.6 14.6 48 24 48z"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Whether the server has Google credentials configured. The button is only an
+ * affordance: the API refuses the flow on its own when the keys are missing.
+ */
+function useGoogleEnabled(): boolean {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<{ google: boolean }>('/auth/providers', { anonymous: true })
+      .then((data) => {
+        if (!cancelled) setEnabled(Boolean(data.google));
+      })
+      .catch(() => {
+        // Not configured, or offline — simply no button.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return enabled;
+}
+
+function GoogleDivider() {
+  return (
+    <div className="flex items-center gap-3 text-[11px] tracking-wider text-ink-400 uppercase">
+      <span className="rule flex-1" />
+      หรือ
+      <span className="rule flex-1" />
+    </div>
+  );
+}
+
+function GoogleButton({ label }: { label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        window.location.href = '/api/auth/google/start';
+      }}
+      className="btn-secondary w-full"
+    >
+      <GoogleMark />
+      {label}
+    </button>
+  );
+}
+
+/** Codes the callback appends to `/login?google=…`, in the visitor's language. */
+const GOOGLE_ERRORS: Record<string, string> = {
+  cancelled: 'ยกเลิกการเข้าสู่ระบบด้วย Google',
+  disabled: 'ยังไม่ได้เปิดใช้งานการเข้าสู่ระบบด้วย Google',
+  state: 'เซสชันการเข้าสู่ระบบด้วย Google ไม่ถูกต้อง กรุณาลองใหม่',
+  expired: 'ใช้เวลานานเกินไป กรุณาเริ่มเข้าสู่ระบบด้วย Google ใหม่อีกครั้ง',
+  failed: 'เชื่อมต่อกับ Google ไม่สำเร็จ กรุณาลองใหม่',
+  banned: 'บัญชีนี้ถูกระงับการใช้งาน',
+  deleted: 'บัญชีนี้ถูกลบแล้ว กรุณาสมัครใหม่',
+  unverified_email:
+    'อีเมลของบัญชี Google ยังไม่ได้รับการยืนยัน จึงเชื่อมกับบัญชีเดิมไม่ได้ กรุณาเข้าสู่ระบบด้วยรหัสผ่าน',
+  two_factor: 'บัญชีนี้เปิด 2FA ไว้ กรุณาเข้าสู่ระบบด้วยรหัสผ่านและรหัสยืนยัน',
+};
+
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const google = useGoogleEnabled();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -27,6 +120,18 @@ export function LoginPage() {
     description: 'เข้าสู่ระบบ WKSL เพื่อเขียนบทความและพูดคุยกับชุมชน',
     path: '/login',
   });
+
+  // The Google callback reports a failure by coming back here with a code.
+  // Clearing it keeps a reload from repeating a stale message.
+  useEffect(() => {
+    const code = searchParams.get('google');
+    if (!code) return;
+    const message = GOOGLE_ERRORS[code];
+    if (message) setError(new ApiError(400, message, 'GOOGLE_OAUTH'));
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('google');
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,6 +265,13 @@ export function LoginPage() {
           {challenge ? 'ยืนยันและเข้าสู่ระบบ' : 'เข้าสู่ระบบ'}
         </button>
       </form>
+
+      {google && !challenge && (
+        <div className="mt-5 space-y-5">
+          <GoogleDivider />
+          <GoogleButton label="เข้าสู่ระบบด้วย Google" />
+        </div>
+      )}
     </AuthShell>
   );
 }
@@ -167,6 +279,7 @@ export function LoginPage() {
 export function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const google = useGoogleEnabled();
 
   const [form, setForm] = useState({
     displayName: '',
@@ -236,6 +349,18 @@ export function RegisterPage() {
         </>
       }
     >
+      {google && (
+        <div className="mb-5">
+          <GoogleButton label="สมัครด้วย Google" />
+          <p className="mt-2 text-center text-xs text-ink-400">
+            ระบบจะสร้างชื่อผู้ใช้ให้อัตโนมัติ แก้ไขภายหลังได้ในหน้าตั้งค่า
+          </p>
+          <div className="mt-5">
+            <GoogleDivider />
+          </div>
+        </div>
+      )}
+
       <form onSubmit={submit} className="space-y-4">
         {error && <Alert>{error.message}</Alert>}
 

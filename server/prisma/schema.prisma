@@ -63,6 +63,11 @@ model User {
   /// Admins and the owner still see it. Posts and comments stay public.
   isHidden     Boolean  @default(false)
 
+  // --- Social sign-in ---
+  /// Google's stable subject id (`sub`). Null means the account has never been
+  /// used with Google. Unique, so one Google account cannot own two profiles.
+  googleId String? @unique
+
   // --- Account lifecycle ---
   emailVerified    Boolean   @default(false)
   emailVerifiedAt  DateTime?

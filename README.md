@@ -334,6 +334,37 @@ AGE_GATE_IP_BINDING=true
 - ตั้ง `APP_ENCRYPTION_KEY` เพื่อเข้ารหัส TOTP shared secret (AES-256-GCM) — และใช้เป็นคีย์ HMAC ของ hash IP ในตาราง `AgeCheck` ด้วย
 - `AGE_GATE_ENABLED=true` เปิดเกตยืนยันอายุ (ปิดไว้เป็นค่าเริ่มต้น จึงไม่กระทบ deploy เดิม) ตาราง `AgeCheck` มากับ migration แล้ว — `npm run preflight` จะฟ้องถ้าเปิดเกตแต่ยังไม่ได้ migrate
 
+### ลงชื่อเข้าใช้ / สมัครด้วย Google (ไม่บังคับ)
+
+โค้ดฝั่งเซิร์ฟเวอร์พร้อมใช้แล้ว (Authorization Code + PKCE, ไม่มี dependency เพิ่ม) แต่จะทำงานก็ต่อเมื่อมี credential ของคุณเอง — ถ้ายังไม่ใส่ ปุ่มจะไม่แสดงและ endpoint จะตอบ 503:
+
+1. เปิด [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → สร้างโปรเจกต์ (หรือเลือกโปรเจกต์เดิม)
+2. **OAuth consent screen** → เลือก *External* → ใส่ชื่อแอป WKSL, อีเมล поддержки, โดเมน `wksl.site` → กด **Publish app** (scopes ที่ใช้เป็น `openid email profile` ซึ่งเป็น non-sensitive จึงไม่ต้องรอ verification)
+3. **Credentials** → *Create credentials* → *OAuth client ID* → ชนิด **Web application**
+4. **Authorised redirect URIs** ใส่ให้ตรงเป๊ะ:
+   - `https://app.wksl.site/api/auth/google/callback`
+   - `http://localhost:5173/api/auth/google/callback` (สำหรับ dev)
+   - ไม่ต้องใส่ *Authorised JavaScript origins* เพราะ flow ทำงานฝั่งเซิร์ฟเวอร์
+5. คัดลอก **Client ID** กับ **Client secret** ใส่ `.env`:
+
+```env
+GOOGLE_CLIENT_ID=000000000000-xxxxxxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxxxxx
+```
+
+6. รีสตาร์ทแอป — ปุ่ม "เข้าสู่ระบบด้วย Google" / "สมัครด้วย Google" จะขึ้นเองในหน้า login และสมัครสมาชิก
+
+สิ่งที่ระบบทำเมื่อมีคนกดปุ่ม:
+
+- สร้างบัญชีใหม่ให้ทันที (ยืนยันอีเมลแล้ว, ตั้งชื่อผู้ใช้อัตโนมัติจากอีเมล, เข้าห้อง WKSL Lounge ให้เหมือนสมัครปกติ)
+- ถ้ามีบัญชีเดิมที่อีเมลเดียวกัน **จะเชื่อมให้ก็ต่อเมื่อ Google บอกว่าอีเมลนั้นยืนยันแล้ว** — ถ้า Google ไม่ยืนยัน จะปฏิเสธเพื่อกันการยึดบัญชี
+- บัญชีที่เปิด 2FA ไว้ จะไม่ให้ล็อกอินผ่าน Google (ต้องใช้รหัสผ่าน + รหัสยืนยัน) เพื่อไม่ให้ 2FA ถูกลัด
+- บัญชี Google ไม่มีรหัสผ่านในระบบ (เก็บ hash ของค่าสุ่มที่ไม่มีใครรู้) แต่ยังตั้งรหัสผ่านได้ผ่าน "ลืมรหัสผ่าน?"
+- ไม่ดึงรูปโปรไฟล์จาก Google มาใช้ เพราะ CSP อนุญาตเฉพาะรูปจากโดเมนเราเอง (ผู้ใช้ยังอัปโหลดเองได้)
+- `GOOGLE_OAUTH_REDIRECT` ใส่เฉพาะเมื่อ address ที่ Google เด้งกลับมาไม่ใช่ `<PUBLIC_URL>/api/auth/google/callback`
+
+ตรวจว่าเส้นทางพร้อม: `npm run test:google --workspace server` (รันกับเซิร์ฟเวอร์ที่เปิดอยู่)
+
 ### สำรองและกู้คืนข้อมูล
 
 ```bash
@@ -375,6 +406,8 @@ BACKUP_S3_BUCKET=my-bucket ./scripts/backup.sh   # อัปโหลดขึ�
 | `AGE_GATE_IP_BINDING` | `true` | จำผู้ใช้เดิมด้วย hash ของ IP — ตั้ง `false` เพื่อบังคับตอบใหม่ทุกเบราว์เซอร์ |
 | `ANALYTICS_ENDPOINT` | — | ถ้าไม่ตั้ง ระบบจะไม่ส่ง analytics เลย |
 | `ERROR_REPORT_ENDPOINT` | — | ถ้าไม่ตั้ง client error จะถูก log ไว้เท่านั้น |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | เปิดปุ่มสมัคร/เข้าสู่ระบบด้วย Google — เว้นว่าง = ปุ่มไม่แสดง |
+| `GOOGLE_OAUTH_REDIRECT` | `<PUBLIC_URL>/api/auth/google/callback` | ใส่เฉพาะเมื่อ redirect URI ไม่ตรงกับ PUBLIC_URL |
 
 ---
 

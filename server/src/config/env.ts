@@ -155,6 +155,17 @@ const schema = z.object({
   ERROR_REPORT_ENDPOINT: z.string().optional(),
   SECURITY_ALERT_WEBHOOK: z.string().optional(),
 
+  // ---- Google sign-in (optional) ----
+  /// OAuth 2.0 credentials for a "Web application" client from Google Cloud
+  /// Console. Unset (either one) means the feature is off: `/auth/providers`
+  /// reports `google: false` and the client hides the button.
+  GOOGLE_CLIENT_ID: blank,
+  GOOGLE_CLIENT_SECRET: blank,
+  /// Set only when the address Google redirects to is not the public one —
+  /// for example a temporary tunnel or a port-forward. Defaults to
+  /// `${PUBLIC_URL}/api/auth/google/callback`.
+  GOOGLE_OAUTH_REDIRECT: blank,
+
   // ---- Background jobs ----
   ENABLE_JOBS: bool,
   JOB_INTERVAL_MINUTES: z.coerce.number().int().min(1).default(15),
