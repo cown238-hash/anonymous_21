@@ -282,6 +282,23 @@ docker compose exec app node server/scripts/preflight.mjs
 `uploads` (อ่านอย่างเดียว ไม่แก้อะไร) ถ้าอยากให้ warning นับเป็น fail ด้วยให้เพิ่ม `--strict`
 container จะ upsert หมวดหมู่มาตรฐานให้เองทุกครั้งที่บูต (`SEED_CATEGORIES=false` เพื่อปิด) จึงไม่ต้องเปิด `RUN_SEED`
 
+### Cloudflare Tunnel (รันบนเครื่องตัวเอง — ฟรี ไม่ต้องมีบัตร)
+
+`app.wksl.site` เสิร์ฟจากเครื่อง dev ผ่าน Cloudflare Tunnel: แอปฟังที่ `127.0.0.1:4000`
+แล้ว tunnel ต่อออกไปข้างนอกอย่างเดียว — ไม่ต้องมี IP สาธารณะ ไม่ต้องเปิด port
+และไม่แตะ DNS ของ apex (`wksl.site` ยังเป็นเว็บ GSO เหมือนเดิม)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\tunnel\start-all.ps1
+```
+
+คู่มือเต็ม (ติดตั้ง `cloudflared`, ผูก `app.wksl.site`, autostart ตอนล็อกอิน,
+ทำไมต้อง `TRUST_PROXY=true`): `deploy/tunnel/README.md`
+
+**ข้อแลกเปลี่ยน:** เครื่องต้องเปิดและล็อกอิน Windows อยู่ ถ้าต้องการ 24/7 และ
+ไฟล์แนบถาวรจริง ๆ ให้ย้ายขึ้น VM ตามคู่มือ Oracle/Azure ข้างบน — ย้ายข้อมูลด้วย
+`scripts/backup.sh` + `scripts/restore.sh` แล้วเปลี่ยนที่ชี้ DNS ไม่ต้องแก้โค้ด
+
 ### แบบไม่ใช้ Docker
 
 ```bash
