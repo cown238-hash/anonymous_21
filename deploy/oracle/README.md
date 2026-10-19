@@ -21,7 +21,12 @@
 ## 0. สิ่งที่ต้องมี
 
 - บัญชี Oracle Cloud ที่ลงทะเบียนแล้ว (ต้องยืนยันบัตร แต่ Always Free ไม่เรียกเงินตราบเท่าที่ยังใช้ resource ภายในสิทธิ์)
-- โดเมนหนึ่งตัว + DNS A record ชี้มาที่ IP ของ VM (Cloudflare ใช้ฟรีได้) — **บังคับ ดูข้อ 4**
+- ที่อยู่ในโดเมนหนึ่ง — **A record หนึ่งรายการชี้มาที่ IP ของ VM** (Cloudflare ใช้ฟรีได้) — **บังคับ ดูข้อ 4**
+
+> ใช้ **subdomain** ได้ และมักเป็นทางที่ปลอดภัยกว่า: ถ้า apex ของโดเมนมีเว็บอื่นรันอยู่แล้ว
+> (เช่น `wksl.site` เป็นเว็บ GSO) การไปแก้ A record ของ `@` จะทำให้เว็บนั้นล่มทันที
+> ตั้ง host ของแอปให้ตรงกันทั้ง 3 ที่: A record, `PUBLIC_URL`/`CLIENT_ORIGINS` และ Caddyfile
+> ตัวอย่าง: `A app → <IP ของ VM>` + `PUBLIC_URL=https://app.wksl.site`
 
 ## 1. สร้าง VM
 
@@ -55,7 +60,8 @@ git clone <repo-url> ~/app && cd ~/app
 cp .env.docker.example .env
 # สุ่ม secret ใหม่ทุกตัว (JWT_ACCESS_SECRET, JWT_REFRESH_SECRET, APP_ENCRYPTION_KEY)
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
-nano .env      # ตั้ง POSTGRES_PASSWORD, PUBLIC_URL, CLIENT_ORIGINS = https://โดเมนของคุณ
+nano .env      # ตั้ง POSTGRES_PASSWORD, PUBLIC_URL, CLIENT_ORIGINS = https://โฮสต์ของแอป
+               # โฮสต์ของแอป ไม่ใช่โดเมนเปล่า ๆ — ถ้าแอปอยู่ที่ app.wksl.site ก็ใส่ค่านั้น
 
 bash deploy/oracle/bootstrap.sh
 exit           # ออกแล้วเข้าใหม่ เพื่อให้สิทธิ์กลุ่ม docker ทำงาน
@@ -77,11 +83,11 @@ curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
 sudo apt update && sudo apt install -y caddy
 
 sudo cp deploy/oracle/Caddyfile /etc/caddy/Caddyfile
-sudo nano /etc/caddy/Caddyfile    # เปลี่ยนโดเมน + อีเมล
+sudo nano /etc/caddy/Caddyfile    # ใส่โฮสต์ของแอป + อีเมล (ตอนนี้ไฟล์ตั้งไว้ที่ app.wksl.site)
 sudo systemctl reload caddy
 ```
 
-ก่อน reload ต้องเอา A record ของโดเมนชี้มาที่ IP ของ VM แล้ว (DNS ยังไม่ชี้ Caddy จะออกใบรับรองไม่ผ่าน)
+ก่อน reload ต้องให้ A record ของ **โฮสต์ที่จะใช้** ชี้มาที่ IP ของ VM แล้ว (DNS ยังไม่ชี้ Caddy จะออกใบรับรองไม่ผ่าน) — Caddy ควรตั้งชื่อเฉพาะโฮสต์ของแอป ไม่ต้องใส่ apex ถ้า apex เป็นเว็บอื่น
 
 ## 5. Deploy ครั้งแรก
 
