@@ -56,7 +56,7 @@ echo "▸ opening 80/443 on the instance firewall"
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent
 
 # Default: 80/443 open to the world, because the VM must answer Cloudflare's
-# Let's Encrypt challenge before the domain is proxied. Once wksl.site is
+# Let's Encrypt challenge before the domain is proxied. Once app.wksl.site is
 # proxied through Cloudflare (orange cloud), re-run with:
 #
 #   LOCK_TO_CLOUDFLARE=true bash deploy/oracle/bootstrap.sh

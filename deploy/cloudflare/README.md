@@ -1,4 +1,4 @@
-# ตั้ง Cloudflare สำหรับ `wksl.site`
+# ตั้ง Cloudflare สำหรับโซน `wksl.site` (ตัวแอป WKSL อยู่ที่ `app.wksl.site`)
 
 แอปเป็น container เดียวบน Oracle VM ที่พี่มีอยู่แล้ว สิ่งที่ Cloudflare เพิ่มเข้าไปคือ
 **TLS ขอบนอก + CDN + กัน DDoS/WAF** โดยเว็บยังวิ่งบน VM เหมือนเดิม:
@@ -13,7 +13,7 @@ browser ──https──▶ Cloudflare (TLS, cache, WAF, rate limit ขอบ)
                         app container :4000 (loopback)
 ```
 
-ทำตามทีละข้อ แล้วในที่สุดจะได้ `https://wksl.site` ที่แชทเรียลไทม์ (Socket.IO)
+ทำตามทีละข้อ แล้วในที่สุดจะได้ `https://app.wksl.site` ที่แชทเรียลไทม์ (Socket.IO)
 ใช้งานได้ปกติ
 
 > ส่วนที่ต้องทำในบัญชี Cloudflare ผมทำแทนไม่ได้ทุกขั้น — ทุกขั้นมีเมนูให้กดตามนี้เลย
@@ -50,14 +50,17 @@ Cloudflare เป็น **Active** แล้วค่อยทำข้อถั
 > ระหว่างนี้**อย่าแก้ DNS ที่ registrar เดิม** — จากนี้ DNS ทั้งหมดจัดการที่ Cloudflare
 > แทน ถ้าแก้ทั้งสองที่อาจทำให้สับสนและผิดพลาดได้
 
-## 3. สร้าง DNS records
+## 3. สร้าง DNS record ของแอป
 
-หน้า **DNS → Records** เพิ่ม 2 รายการ:
+หน้า **DNS → Records** เพิ่ม **รายการเดียว**:
 
 | Type | Name | Target (IPv4) | Proxy status | TTL |
 | --- | --- | --- | --- | --- |
-| `A` | `@` | `<IP ของ VM Oracle>` | **Proxied** | Auto |
-| `CNAME` | `www` | `wksl.site` | **Proxied** | Auto |
+| `A` | `app` | `<IP ของ VM Oracle>` | **Proxied** | Auto |
+
+> **ห้ามแตะ record ของ `@` และ `www`** — apex ของ `wksl.site` เป็นของเว็บ GSO ที่รัน
+> อยู่บน Vercel แก้แล้ว GSO ล่มทันที WKSL ใช้เฉพาะ subdomain `app` เท่านั้น
+> (เพิ่ม record ใหม่ ไม่ต้องลบของเดิม)
 
 - **หัวใจคือ "Proxied"** (เมฆส้ม) ถ้าเป็น DNS only (เมฆเทา) traffic จะเดินตรงเข้า VM
   ไม่ผ่าน Cloudflare เลย — บัญชีใหม่มักตั้ง default เป็น Proxied อยู่แล้ว แต่ให้เช็คให้ชัวร์
@@ -78,7 +81,7 @@ Cloudflare เป็น **Active** แล้วค่อยทำข้อถั
 ยืนยันว่าใบรับรองปลายทางสมบูรณ์:
 
 ```bash
-curl -fsS https://wksl.site/api/ready    # ต้องได้ {"success":true,...} ไม่ใช่ error 525/526
+curl -fsS https://app.wksl.site/api/ready    # ต้องได้ {"success":true,...} ไม่ใช่ error 525/526
 ```
 
 ถ้าเจอ **525 / 526** แปลว่า Caddy ฝั่ง VM ยังไม่มีใบ หรือโดเมนยังไม่ชี้ — ดู [แก้ปัญหา](#แก้ปัญหาที่เจอบ่อย)
@@ -139,14 +142,14 @@ curl -fsS https://wksl.site/api/ready    # ต้องได้ {"success":true
 | ตัว | ค่า |
 | --- | --- |
 | Rule name | `pwa-bypass` |
-| When | Hostname equals `wksl.site` **AND** URI Path is in (`/sw.js`, `/manifest.webmanifest`, `/offline.html`) |
+| When | Hostname equals `app.wksl.site` **AND** URI Path is in (`/sw.js`, `/manifest.webmanifest`, `/offline.html`) |
 | Cache eligibility | **Bypass cache** |
 
 ภาพปก/รูปโปรไฟล์ (`/uploads/...`) — app เป็นตัวกำหนดเองว่า cache นานเท่าไหร่ (30 วัน, ชื่อไฟล์สุ่มไม่ซ้ำ)
 ปล่อย default ใช้ origin header ก็ได้ ถ้าไม่อยากให้ edge ค้างไฟล์ที่ถูกลบเป็นเวลา 30 วัน
 เพิ่ม rule ที่ห้า: `Eligible for cache` + Edge TTL `1 day` (ไม่บังคับ)
 
-> ทดสอบว่า rule ใช้ได้: `curl -sI https://wksl.site/assets/... | grep -i cf-cache-status`
+> ทดสอบว่า rule ใช้ได้: `curl -sI https://app.wksl.site/assets/... | grep -i cf-cache-status`
 > ไฟล์ที่มี hash ของ Vite ควรได้ `HIT` (ครั้งแรกเป็น `MISS`) ส่วน `/api/posts`
 > ต้องได้ `BYPASS` หรือ `DYNAMIC`
 
@@ -172,7 +175,7 @@ curl -fsS https://wksl.site/api/ready    # ต้องได้ {"success":true
 
 ```bash
 curl -I http://<IP VM>/api/health    # ต้อง timeout / ไม่ตอบ
-curl -fsS https://wksl.site/api/ready   # ต้องตอบปกติ
+curl -fsS https://app.wksl.site/api/ready   # ต้องตอบปกติ
 ```
 
 ## 8. ค่าที่ VM ต้องตั้ง (ครั้งสุดท้าย)
@@ -182,8 +185,8 @@ cd ~/app && nano .env
 ```
 
 ```env
-PUBLIC_URL=https://wksl.site
-CLIENT_ORIGINS=https://wksl.site,https://www.wksl.site
+PUBLIC_URL=https://app.wksl.site
+CLIENT_ORIGINS=https://app.wksl.site
 # Cloudflare → Caddy → app = 2 hops ไม่งัน rate limiter จะนับ IP ของ Cloudflare
 # แทน IP ผู้ใช้ (คนละกับผู้ใช้จริง อาจล็อกทั้งระบบผิดคน)
 TRUST_PROXY_HOPS=2
@@ -197,16 +200,17 @@ TRUST_PROXY_HOPS=2
 
 ```bash
 docker compose -f docker-compose.yml -f deploy/oracle/compose.oracle.yml up -d
-curl -fsS https://wksl.site/api/ready
-curl -sI https://wksl.site/ | grep -iE 'strict-transport|cache-control|cf-cache-status'
+curl -fsS https://app.wksl.site/api/ready
+curl -sI https://app.wksl.site/ | grep -iE 'strict-transport|cache-control|cf-cache-status'
 ```
 
 เปิดเบราว์เซอร์: ล็อกอิน → เข้า `/chat` ส่งข้อความ → เปิดสองแท็บดูว่าข้อความขึ้นทั้งสองแท็บทันที
 
 ## 9. อีเมล (ถ้าจะเปิดยืนยันตัวตนจริง)
 
-ตอนนี้ SMTP ไม่ได้ตั้ง — ระบบพิมพ์ลิงก์ลง log แทน ถ้าจะส่งเมลจาก `wksl.site` จริง ๆ
-ต้องเพิ่มใน Cloudflare DNS (**DNS → Records**, ฝั่ง Email):
+ตอนนี้ SMTP ไม่ได้ตั้ง — ระบบพิมพ์ลิงก์ลง log แทน ถ้าจะส่งเมลจริง ต้องเพิ่ม record ใน
+Cloudflare DNS (**DNS → Records**, ฝั่ง Email) — MX/SPF อยู่ที่ **apex** ของโซน เพราะเป็น
+เรื่องของโดเมนทั้งโดเมน ไม่ใช่ของ subdomain:
 
 | Type | Name | ค่า |
 | --- | --- | --- |
@@ -214,20 +218,22 @@ curl -sI https://wksl.site/ | grep -iE 'strict-transport|cache-control|cf-cache-
 | `TXT` | `@` | `v=spf1 include:<ผู้ให้บริการ> ~all` |
 | `TXT` | `*_domainkey` หรือ `mail._domainkey` | DKIM ที่ผู้ให้บริการให้มา |
 
-> **อย่าเสียบ SMTP ของ Gmail/Yahoo ตรง ๆ** — ปลายทาง `wksl.site` ที่ส่งจาก IP
-> ไม่มี PTR/SPF แก้ปัญหาไม่ได้ ใช้บริการที่ทำ marketing/transactional ให้
-> (Resend / Mailgun / Brevo …) ก็ `SMTP_HOST` ใน `.env` ได้ตามเดิม
+> ถ้าให้แอปส่งเมลโดยใช้ผู้ส่งเป็น `app.wksl.site` ตรง ๆ ต้องมี TXT SPF ของ host นั้นด้วย
+> (`TXT` name `app`) — ง่ายกว่า: ตั้ง `MAIL_FROM` ให้ใช้โดเมน apex แล้ว SPF ที่ `@` ครอบให้เอง
+>
+> **อย่าเสียบ SMTP ของ Gmail/Yahoo ตรง ๆ** — ผู้ส่งที่ไม่มี PTR/SPF จะเข้ากระจายเป็นสแปม
+> ใช้บริการที่ทำ transactional ให้ (Resend / Mailgun / Brevo …) แล้วใส่ใน `SMTP_HOST`
 
 ## 10. ตรวจหลังติดตั้ง
 
 | เช็ค | ควรได้ |
 | --- | --- |
-| `curl -sI https://wksl.site` | `HTTP/2 200` + header `cf-ray:` ขึ้นต้น |
-| `curl -sI https://wksl.site/api/health` | `cf-cache-status: BYPASS/DYNAMIC` |
+| `curl -sI https://app.wksl.site` | `HTTP/2 200` + header `cf-ray:` ขึ้นต้น |
+| `curl -sI https://app.wksl.site/api/health` | `cf-cache-status: BYPASS/DYNAMIC` |
 | หน้าเว็บ | favicon + โลโก้โหลด ปุ่ม login ใช้ได้ |
 | `/chat` ส่งข้อความข้ามแท็บ | ทันที ไม่มี error ใน devtools |
 | devtools → Application → Service Workers | `activated` (cache rule ข้อ 6 ทำถูก) |
-| ทดสอบ: เปิดเบราว์เซอร์ไปที่ `https://www.wksl.site` | ขึ้นปกติ ไม่มี certificate error |
+| เปิด `https://app.wksl.site` | ขึ้นปกติ ไม่มี certificate error |
 
 ### ตรวจว่า IP จริงถึง server (สำคัญ)
 
@@ -249,9 +255,9 @@ docker compose -f docker-compose.yml -f deploy/oracle/compose.oracle.yml logs ap
 | แชทขึ้น spinner ไม่มีข้อความ | WebSockets ปิดที่ Cloudflare | Network → WebSockets → On |
 | กดแล้วเป็นหน้า error / CSS หาย | Apt-Cloudflare Rocket Loader ยัง On | ขั้นตอนที่ 5 ตั้ง Off |
 | SW แจ้ง "new content available" ค้าง | service worker ยังเป็นไฟล์เก่าเพราะถูก cache ไว้ | ขั้นตอนที่ 6 ตั้ง rule 4 (`pwa-bypass`) แล้ว hard reload |
-| เมลยืนยันลิงก์ชี้ `localhost` | `PUBLIC_URL` ยังเป็นค่าเดิม | ตั้ง `https://wksl.site` ใน `.env` แล้ว rebuild |
+| เมลยืนยันลิงก์ชี้ `localhost` | `PUBLIC_URL` ยังเป็นค่าเดิม | ตั้ง `https://app.wksl.site` ใน `.env` แล้ว rebuild |
 | `ERR_TOO_MANY_REDIRECTS` | SSL mode เป็น Flexible | ตั้ง Full (strict) ขั้นตอนที่ 4 |
-| `www` ไม่งาน | ไม่มี record / proxied ไม่ตรง | อย่าให้ `www` เป็น DNS-only ถ้าตั้ง Caddy รองรับ 2 host (ทำไว้แล้ว) |
+| `app.wksl.site` ไม่งาน แต่ apex ปกติ | record `app` หาย / เป็น DNS-only | ให้ record `app` ชี้ IP ของ VM และเป็น **Proxied** (เมฆส้ม) ส่วน `@`/`www` ปล่อยไว้เป็นของ GSO |
 
 ถ้าจะลอง Workers/Pages เต็มรูปแบบทีหลัง (แชทย้ายไป Durable Objects, ไฟล์ย้าย R2)
 ค่อยบอกได้ แต่ Stack แบบนี้รันได้เต็มความสามารถบน configuration นี้แล้ว

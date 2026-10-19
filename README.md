@@ -294,6 +294,8 @@ npm start          # เสิร์ฟทั้ง API และ client ที�
 
 ```env
 NODE_ENV=production
+# โฮสต์จริงของแอป — ถ้ารันบน subdomain (เช่น app.wksl.site) ให้ใส่ host นั้น
+# ไม่ใช่ apex เพราะ apex อาจเป็นเว็บอื่นอยู่
 PUBLIC_URL=https://your-domain.com
 CLIENT_ORIGINS=https://your-domain.com
 TRUST_PROXY=true
@@ -348,6 +350,7 @@ BACKUP_S3_BUCKET=my-bucket ./scripts/backup.sh   # อัปโหลดขึ�
 | `SMTP_*` | — | เว้นว่างไว้ = อีเมลถูกพิมพ์ลง log |
 | `APP_ENCRYPTION_KEY` | — | เข้ารหัส TOTP secret ในฐานข้อมูล |
 | `TRUST_PROXY` | `false` | เปิดเมื่อรันหลัง reverse proxy |
+| `HSTS_INCLUDE_SUBDOMAINS` | `false` | ส่ง `includeSubDomains` + `preload` ใน HSTS — เปิดเฉพาะเมื่อแอปอยู่ที่ apex ของโดเมน (subdomain ถูก preload ไม่ได้) |
 | `ENABLE_JOBS` | `false` | รัน maintenance jobs ในตัวเซิร์ฟเวอร์ |
 | `AGE_GATE_ENABLED` | `false` | เปิดเกตยืนยันอายุ 18+ ก่อนเสิร์ฟเนื้อหา (`npm run test:agegate` ต้องเปิดถึงจะทดสอบจริง) |
 | `AGE_GATE_MIN_AGE` | `18` | อายุขั้นต่ำ (13–21) — เปลี่ยนแล้วผลยืนยันเดิมถือเป็นโมฆะ ทุกคนตอบใหม่ |

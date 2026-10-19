@@ -17,7 +17,9 @@
   email admin@wksl.site
 }
 
-https://wksl.site, https://www.wksl.site {
+# Only the app host: the apex (wksl.site) serves the GSO site elsewhere, so
+# Caddy must not answer for it or the two would fight over the same name.
+https://app.wksl.site {
   encode zstd gzip
 
   # The app container listens on 127.0.0.1 only (compose.oracle.yml), so TLS
