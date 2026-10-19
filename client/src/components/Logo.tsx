@@ -1,4 +1,33 @@
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
+
+/** Wide wordmark — og:image and the sign-in / account pages. */
+export const BRAND_LOGO_SRC = '/logo/wksl-wordmark.png';
+/** Square monogram — stays legible in the 32px header chip. */
+export const BRAND_MARK_SRC = '/logo/wksl-mark.png';
+export const BRAND_NAME = 'WKSL';
+
+/**
+ * The WKSL wordmark artwork. Falls back to the vector `LogoMark` if the image is
+ * missing or fails to decode, so the header never renders a broken box.
+ */
+export function BrandLogo({
+  src = BRAND_LOGO_SRC,
+  className,
+  alt = '',
+}: {
+  src?: string;
+  className?: string;
+  alt?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  // Remount when the source changes so a failed image can be retried.
+  useEffect(() => setFailed(false), [src]);
+
+  if (failed) return <LogoMark className={className} />;
+
+  return <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />;
+}
 
 /**
  * The WKSL wordmark glyph: a bold geometric W drawn with round caps.

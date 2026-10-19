@@ -9,7 +9,7 @@
  *   correctness and privacy problem.
  */
 
-const VERSION = 'wksl-v1';
+const VERSION = 'wksl-v2';
 const SHELL_CACHE = `${VERSION}-shell`;
 const ASSET_CACHE = `${VERSION}-assets`;
 const SHELL_URL = '/';
@@ -18,7 +18,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(SHELL_CACHE)
-      .then((cache) => cache.addAll([SHELL_URL, '/offline.html', '/favicon.svg', '/manifest.webmanifest']))
+      .then((cache) => cache.addAll([SHELL_URL, '/offline.html', '/logo/wksl-mark.png', '/manifest.webmanifest']))
       .then(() => self.skipWaiting()),
   );
 });

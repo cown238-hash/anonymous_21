@@ -24,7 +24,7 @@ import { AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api';
 import { useSocketEvents } from '../lib/realtime';
 import { Avatar } from './ui';
-import { LogoMark } from './Logo';
+import { BrandLogo, BRAND_MARK_SRC } from './Logo';
 import { motion, pageFade } from './anim';
 
 type IconComponent = React.ComponentType<{ size?: number | string; className?: string }>;
@@ -176,7 +176,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           <Link to="/" className="group flex items-center gap-2.5">
             <span className="animate-float-y animate-halo relative grid h-8 w-8 place-items-center overflow-hidden rounded-lg bg-[#101820] ring-1 ring-white/10">
-              <LogoMark size={17} />
+              <BrandLogo src={BRAND_MARK_SRC} className="h-full w-full object-cover" />
               <span
                 aria-hidden
                 className="animate-sheen pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 -skew-x-12 bg-white/30 blur-md"

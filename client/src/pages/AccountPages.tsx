@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Spinner } from '../components/ui';
-import { LogoMark } from '../components/Logo';
+import { BrandLogo, BRAND_MARK_SRC } from '../components/Logo';
 import { ApiError, api } from '../lib/api';
 import { toast } from '../lib/toast';
 import { useSeo } from '../lib/seo';
@@ -258,8 +258,8 @@ function AuthCard({
     <div className="grid min-h-screen place-items-center px-5 py-12">
       <div className="w-full max-w-md">
         <Link to="/" className="mb-8 inline-flex items-center gap-2.5">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand-500 text-black">
-            <LogoMark size={20} />
+          <span className="grid h-10 w-10 place-items-center overflow-hidden rounded-xl bg-brand-500">
+            <BrandLogo src={BRAND_MARK_SRC} className="h-full w-full object-cover" />
           </span>
           <span className="text-xl font-bold tracking-tight text-ink-900">WKSL</span>
         </Link>
