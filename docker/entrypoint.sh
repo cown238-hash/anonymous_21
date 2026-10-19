@@ -17,5 +17,11 @@ if [ "${RUN_SEED:-false}" = "true" ]; then
     --schema=/app/server/prisma/schema.prisma
 fi
 
+# Reference data only (categories). Idempotent, and non-fatal on purpose: it is
+# cosmetic and must never keep the container from starting.
+if [ "${SEED_CATEGORIES:-true}" = "true" ] && [ -f /app/server/scripts/add-categories.mjs ]; then
+  node /app/server/scripts/add-categories.mjs || echo "▸ warning: could not sync categories (continuing)"
+fi
+
 echo "▸ starting: $*"
 exec "$@"

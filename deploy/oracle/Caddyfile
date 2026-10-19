@@ -1,0 +1,40 @@
+# Caddyfile for the Oracle Cloud Always Free VM, behind Cloudflare.
+#
+# Install Caddy on the host (apt), then:
+#   sudo cp deploy/oracle/Caddyfile /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Caddy fetches and renews the Let's Encrypt certificate on its own, and
+# reverse_proxy upgrades WebSockets automatically — which is what Socket.IO
+# (/socket.io) needs to work through the proxy.
+#
+# Architecture:  browser → Cloudflare (TLS + CDN + WAF) → Caddy (TLS) → app
+# Two proxy hops in total, which is why the app sets TRUST_PROXY_HOPS=2.
+
+{
+  # Let's Encrypt expiry notices only — the certificates still come free
+  # from Let's Encrypt, no Cloudflare DNS API token needed.
+  email admin@wksl.site
+}
+
+https://wksl.site, https://www.wksl.site {
+  encode zstd gzip
+
+  # The app container listens on 127.0.0.1 only (compose.oracle.yml), so TLS
+  # terminates here and nothing plaintext ever leaves the host. Caddy keeps
+  # Cloudflare's X-Forwarded-For intact and appends the edge address, leaving
+  # the real visitor at the head of the chain where the app reads it.
+  reverse_proxy 127.0.0.1:4000
+
+  header {
+    # Uploads are private per-post; the app already sets Cache-Control itself.
+    X-Content-Type-Options nosniff
+  }
+
+  log {
+    output file /var/log/caddy/access.log {
+      roll_size 10MiB
+      roll_keep 5
+    }
+  }
+}

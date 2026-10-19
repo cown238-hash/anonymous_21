@@ -92,6 +92,7 @@
   - ผิวหน้าไล่แถบแสง 8 ขั้น (ฟ้าสว่าง → เส้นคอดฟ้า → แสงชั้นที่สอง → เหล็กใต้เงา) ให้เป็นโลหะจริง
   - ขอบด้านบนขาวเกิน (`bevel`), ด้านข้างเข้มลง (`side`), เงาแข็งบนพื้นหลัง
   - `public/favicon.svg` + `scripts/generate-icons.mjs` วาดโครงเดียวกัน (5 ขนาด PWA) เป็น PNG จริงด้วย SDF
+  - ชื่อแบรนด์กับ wordmark มาจาก `client/scripts/make-logo-placeholder.mjs` → `public/logo/wksl-mark.png` (จัตุรัส ใช้ในชิป header/favicon) และ `public/logo/wksl-wordmark.png` (กว้าง ใช้ og:image/หน้า login) — เป็นของชั่วคราว เอาไฟล์จริงมาวางทับได้เลยโดยไม่ต้องแก้โค้ด
 - **เรืองแสง** — hero มีขอบเรืองแสงเขียว + แสงลอย 3 ก้อน, หัวเรื่องไล่สีไหล (`text-gradient-flow`), โลโก้มีวงแหวนกะพริบ (`halo`) และแสงวิ่งผ่าน (`sheen`), การ์ดมีล้างเขียวส่องเข้ามาตอน hover
 
 ### แอนิเมชัน (framer-motion)
@@ -182,7 +183,10 @@ npm run dev
 > Vite proxy `/api`, `/uploads` และ `/socket.io` ไปที่พอร์ต 4000 ทำให้ทุกอย่างอยู่ origin เดียวกัน
 > คุกกี้ `httpOnly` จึงทำงานได้โดยไม่ต้องตั้ง CORS เพิ่ม
 
-### บัญชีทดลองใช้งาน
+### บัญชีเข้าใช้งาน
+
+**เครื่องที่รัน `npm run setup` (หรือ `db:seed`) แล้ว** จะมีบัญชีทดลองชุดนี้ — สคริปต์ e2e ทั้งหมด
+(`socket-test`, `attachment-test`, `privacy-test`, `account-test`, `video-test`) ล็อกอินด้วยบัญชีเหล่านี้:
 
 | บัญชี | รหัสผ่าน | สิทธิ์ |
 | --- | --- | --- |
@@ -193,10 +197,22 @@ npm run dev
 | `nut@nimbus.dev` | `Password@123` | ผู้ใช้ทั่วไป |
 | `ploy@nimbus.dev` | `Password@123` | ผู้ใช้ทั่วไป |
 
+> ⚠️ บัญชีชุดนี้ **ห้ามขึ้นโปรดักชัน** — ฐานข้อมูลที่ล้างด้วย `npm run purge:content` หรือที่สร้างใหม่จะไม่มีบัญชี
+> เหล่านี้เลย ถ้าเผลอขึ้นไปแล้วให้ใช้ `server/scripts/retire-demo-users.mjs` ปลดออก
+
+**บัญชีของจริง** สร้างด้วยคำสั่งนี้ — สมัครผ่าน API จริง (นโยบายรหัสผ่านและ rate limit ทำงานเหมือนผู้ใช้จริง)
+แล้วเลื่อนเป็น ADMIN และยืนยันอีเมลให้:
+
+```bash
+node server/scripts/create-admin.mjs you@example.com 'StrongPassw0rd'
+```
+
+ลืมรหัสหรือเข้าไม่ได้ → `node server/scripts/set-password.mjs <email> <password>`
+
 > **ไม่มี SMTP?** ระบบจะพิมพ์อีเมลลง log และคืนลิงก์กลับมาที่ API
 > ทำให้ทดสอบยืนยันอีเมลและกู้คืนรหัสผ่านได้ครบวงจรโดยไม่ต้องตั้ง mail server
 >
-> ทดลองแชท: เปิด 2 หน้าต่าง ล็อกอินคนละบัญชี แล้วเข้า `/chat`
+> ทดลองแชท: เปิด 2 หน้าต่าง ล็อกอินคนละบัญชี (หรือสมัครบัญชีที่สองผ่านหน้า `/register`) แล้วเข้า `/chat`
 
 ---
 
@@ -219,6 +235,43 @@ docker compose up -d --build
 ```bash
 docker compose run --rm jobs
 ```
+
+### Render
+
+Repo นี้มี Blueprint ไว้ที่ `render.yaml` — สั่งสร้างทั้ง database และ web service พร้อมกันจากไฟล์เดียว:
+
+1. Push repo นี้ขึ้น GitHub
+2. Render Dashboard → **New → Blueprint** → เลือก repo
+3. กด Apply แล้วแก้ค่า `sync: false` ที่ dashboard: `PUBLIC_URL` (เอา URL จริงของ service มากรอก ไม่งั้นลิงก์ในอีเมลยืนยัน/รีเซ็ตรหัสจะชี้ไป `localhost`), SMTP และ `APP_ENCRYPTION_KEY` ตามต้องการ
+4. Deploy ครั้งแรกจะรัน `prisma migrate deploy` ก่อนเริ่ม server (`docker/entrypoint.sh`) — สร้างบัญชีแอดมินด้วย `node server/scripts/create-admin.mjs <email> <password>`
+
+สิ่งที่ต่างจาก docker-compose:
+
+- **ไฟล์อัปโหลดต้องใช้ persistent disk** — Render ลบไฟล์บน container ทุกครั้งที่ redeploy Blueprint mount disk ที่ `/app/server/uploads` ไว้ให้แล้ว แต่ disk ใช้ได้แค่ paid plan (starter ขึ้นไป) ถ้าใช้ free plan ไฟล์แนบบทความกับภาพปกจะหายทุกครั้งที่มี deploy
+- **`ENABLE_JOBS=true`** ใน blueprint เพราะ Render ไม่มี cron job แยก seperti compose — server รัน maintenance jobs เองทุก 30 นาที
+- **Socket.IO ใช้ได้เลย** บน Web Service ของ Render (WebSocket รองรับ) ไม่ต้องตั้งเพิ่มเพราะ client เชื่อม origin เดียวกับ API
+- ถ้า `prisma migrate deploy` ค้าง (query engine ไม่คืนค่า — เคยเจอบน Windows บางเครื่อง แต่ไม่ใช่บน container Linux) ใช้ `npm run db:apply -- prisma/migrations/<โฟลเดอร์>` จาก log ของ deploy แทน แล้วตั้ง `RUN_MIGRATIONS=false`
+
+### Oracle Cloud Always Free (ฟรีถาวร — เหมาะกับ deploy จริง)
+
+ถ้าจะใช้ระยะยาวโดยไม่จ่ายเงิน  VM ฟรีของ Oracle เก็บไฟล์แนบคงไว้ได้ (Render free ไม่มี persistent disk) คู่มือทีละขั้นอยู่ที่ `deploy/oracle/README.md` — ประกอบด้วย:
+
+- `bootstrap.sh` — ติดตั้ง Docker + Node 22 + เปิด firewall ฝั่ง VM
+- `compose.oracle.yml` — override จาก `docker-compose.yml` เอาไว้ (app ฟัง loopback, TLS ไปที่ Caddy)
+- `Caddyfile` — HTTPS อัตโนมัติ (จำเป็น เพราะ production ใช้ refresh cookie แบบ `secure`)
+- `update.sh` — pull + rebuild + restart
+
+ภาพ `node:22-alpine` / `postgres:16-alpine` รันบน ARM ได้ตามธรรมชาติ ไม่ต้องแก้โค้ด
+
+**เช็คก่อนเปิดใช้จริง** — หลัง container ขึ้นแล้ว รันครั้งเดียว:
+
+```bash
+docker compose exec app node server/scripts/preflight.mjs
+```
+
+ต้องได้ `0 failure(s)` — ตรวจ env/secret/โดเมน, การเชื่อม DB, สถานะ migration, จำนวนผู้ใช้/หมวดหมู่ และสิทธิ์เขียน
+`uploads` (อ่านอย่างเดียว ไม่แก้อะไร) ถ้าอยากให้ warning นับเป็น fail ด้วยให้เพิ่ม `--strict`
+container จะ upsert หมวดหมู่มาตรฐานให้เองทุกครั้งที่บูต (`SEED_CATEGORIES=false` เพื่อปิด) จึงไม่ต้องเปิด `RUN_SEED`
 
 ### แบบไม่ใช้ Docker
 
@@ -430,6 +483,9 @@ io({ auth: { token: accessToken } })
 | `npm run db:studio` | เปิด Prisma Studio |
 | `npm run jobs` | รัน maintenance jobs หนึ่งครั้ง |
 | `npm run uploads:prune` | ลบไฟล์อัปโหลดที่ไม่มีอะไรอ้างอิง (เพิ่ม `-- --dry-run` ได้) |
+| `npm run purge:content` | ล้างเนื้อหาทั้งหมด (บทความ คอมเมนต์ แชท บัญชี ไฟล์แนบ) ให้เริ่มจาก 0 — ไม่แตะ schema/migration ledger, ไม่มี `--yes` = นับให้ดูก่อน |
+| `npm run categories:add` | เพิ่มหมวดหมู่ที่ขาดจากรายการใน `seed.ts` (ไม่แตะข้อมูลอื่น) |
+| `npm run preflight` | ตรวจความพร้อมก่อนเปิดใช้จริง (env, secret, โดเมน, DB, migration, ไฟล์) — exit 1 ถ้ามีปัญหา |
 
 ทดสอบเฉพาะส่วน:
 
@@ -455,10 +511,13 @@ npm run test:account     --workspace server
 
 ### หมายเหตุเรื่อง migration
 
-`prisma migrate diff` / `migrate deploy` ค้างในสภาพแวดล้อมนี้ (query engine ไม่คืนค่า) จึงเขียน SQL เองใน
-`prisma/migrations/<timestamp>_<name>/migration.sql` แล้วใช้ `npm run db:apply -- prisma/migrations/<โฟลเดอร์>`
-ซึ่งรันทั้งหมดใน **transaction เดียว** (ล้มเหลว = ไม่เปลี่ยนอะไรเลย) และบันทึกลง `_prisma_migrations` ให้เอง
-รันซ้ำได้โดยไม่มีผล (เช็น ledger ก่อน)
+migration ถูกเขียนเป็น SQL ตรง ๆ ใน `prisma/migrations/<timestamp>_<name>/migration.sql` (ไม่ได้ให้ `migrate dev`
+generate) แล้ว apply ด้วย `prisma migrate deploy` ตามปกติ — ตรวจสอบแล้วว่า DB เปล่าที่ migrate ด้วยคำสั่งนี้ได้
+schema ตรงกับ `prisma/schema.prisma` ทุกตาราง (`migrate diff` ออกมาว่าง)
+
+ถ้าเจอ `migrate deploy` ค้าง (query engine ไม่คืนค่า — เคยเจอบน Windows บางเครื่อง) ให้ใช้
+`npm run db:apply -- prisma/migrations/<โฟลเดอร์>` แทน ซึ่งรันทั้งหมดใน **transaction เดียว**
+(ล้มเหลว = ไม่เปลี่ยนอะไรเลย) และบันทึกลง `_prisma_migrations` ให้เอง รันซ้ำได้โดยไม่มีผล (เช็ค ledger ก่อน)
 
 ---
 

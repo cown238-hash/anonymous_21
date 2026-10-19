@@ -19,7 +19,9 @@ import { errorHandler, notFoundHandler } from './middleware/error.js';
 export function createApp() {
   const app = express();
 
-  if (env.TRUST_PROXY) app.set('trust proxy', 1);
+  // Cloudflare → Caddy → app is two hops, so read the hop count from config
+  // instead of hard-coding one — otherwise `req.ip` stays on the edge address.
+  if (env.TRUST_PROXY) app.set('trust proxy', env.TRUST_PROXY_HOPS);
   app.disable('x-powered-by');
   // Keep raw IPs out of the rate limiter's default key when behind a proxy.
   app.set('etag', 'strong');

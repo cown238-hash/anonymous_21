@@ -30,6 +30,9 @@
     "jobs": "tsx scripts/jobs.mjs",
     "jobs:prod": "node dist/services/jobs.js",
     "uploads:prune": "node scripts/prune-uploads-now.mjs",
+    "purge:content": "node scripts/purge-content.mjs",
+    "categories:add": "node scripts/add-categories.mjs",
+    "preflight": "node scripts/preflight.mjs",
     "test:account": "node scripts/account-test.mjs",
     "db:deploy": "prisma migrate deploy"
   },

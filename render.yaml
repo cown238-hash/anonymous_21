@@ -1,0 +1,110 @@
+# Render Blueprint — deploy ทั้ง stack ด้วยคำสั่งเดียว
+#
+#   ใช้ยังไง:
+#   1. push repo นี้ขึ้น GitHub
+#   2. Render Dashboard → New → Blueprint → เลือก repo นี้
+#   3. Render จะสร้าง database และ web service จากไฟล์นี้
+#      (ขอ `repo`, `plan`, `region` แก้ไขได้ตอน sync)
+#
+# ภาพรวม: web service ตัวเดียว (Docker) เสิร์ฟทั้ง API, client ที่ build แล้ว,
+# Socket.IO และไฟล์อัปโหลด — เหมือน docker-compose.yml แต่รันบน Render
+# spec: https://render.com/docs/blueprint-spec
+
+databases:
+  - name: wsk-db
+    databaseName: nimbus
+    user: nimbus
+    plan: basic-256mb
+    region: singapore
+    # หมายเหตุ: ตัวเลือก `free` มีข้อจำกัดการเก็บข้อมูลและหมดอายุได้
+    # เหมาะกับการทดสอบเท่านั้น ขึ้นโปรดuction จริงแนะนำ basic-256mb ขึ้นไป
+
+services:
+  - type: web
+    name: wsk-app
+    runtime: docker
+    plan: starter
+    region: singapore
+
+    # Root Dockerfile ทำ multi-stage build: npm ci → build → copy dist เข้า
+    # image บาง ๆ — Render build จาก context repo root ได้ตรง ๆ
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/ready
+
+    # ทุกการ push ขึ้น branch หลักจะ rebuild + redeploy อัตโนมัติ
+    autoDeploy: true
+
+    # ---- Persistent disk ----
+    # Render ลบไฟล์บน container ทุกครั้งที่ deploy ใหม่หรือ restart
+    # ถ้าไม่ทำ disk นี้ ไฟล์ที่ผู้ใช้อัปโหลด (แนบบทความ/ภาพปก) จะหายหมด
+    # disk ต้องใช้ paid plan (starter ขึ้นไป) — free plan ไม่รองรับ
+    disk:
+      name: uploads
+      mountPath: /app/server/uploads
+      sizeGB: 1
+
+    envVars:
+      # ---- ค่าคงที่ ----
+      - key: NODE_ENV
+        value: production
+      # Render วาง service ไว้อีกชั้นหนึ่งด้านหน้า — เปิดเพื่อให้ rate limiter
+      # นับ IP จาก X-Forwarded-For แทน IP ของ proxy
+      - key: TRUST_PROXY
+        value: 'true'
+      # migrate deploy จะรันก่อนเริ่ม server ทุกครั้ง (docker/entrypoint.sh)
+      # ปล่อย default ไว้ถ้าจะปิดสั้น ๆ ตอน debug ค่อยตั้งเป็น "false"
+      - key: RUN_MIGRATIONS
+        value: 'true'
+      # เปิด maintenance jobs (ล้าง session หมดอายุ, ลบไฟล์ไม่ถูกใช้) ในตัว
+      # service — บน Render ไม่มี cron job แยก จึงต้องรันใน process เดียวกัน
+      - key: ENABLE_JOBS
+        value: 'true'
+      - key: JOB_INTERVAL_MINUTES
+        value: '30'
+      # โหลดโพสต์/เลื่อนเวลาแล้วไม่อัปโหลดใหม่ทุกครั้ง
+      - key: MAX_UPLOAD_MB
+        value: '5'
+      - key: TWO_FACTOR_ISSUER
+        value: WKSL
+
+      # ----ค่าที่ Render กรอกให้ ----
+      - key: DATABASE_URL
+        fromDatabase:
+          name: wsk-db
+          property: connectionString
+      # สุ่ม secret ตอนสร้าง service (เก็บไว้ใน Render ไม่ลง repo)
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+
+      # ---- ตั้งค่าหลังจาก deploy ครั้งแรกใน dashboard ----
+      # เอา URL จริงจาก Render (เช่น https://wsk-app.onrender.com) มากรอก
+      # PUBLIC_URL ใช้กับอีเมลยืนยัน/รีเซ็ตรหัสผ่าน, sitemap.xml และ og:image
+      # ถ้าไม่ตั้ง ลิงก์ในอีเมลจะชี้ไป localhost:5173
+      - key: PUBLIC_URL
+        sync: false
+      # ปกติไม่ต้องตั้งเลยเพราะเสิร์ฟ client กับ API  origin เดียวกัน
+      - key: CLIENT_ORIGINS
+        sync: false
+
+      # ---- ตัวเลือกเสริม ----
+      # ไม่มี SMTP = อีเมล (ยืนยันตัวตน/กู้คืน) พิมพ์ลง log แทน
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      # เข้ารหัส TOTP secret ที่เก็บในฐานข้อมูล (32 bytes hex)
+      # node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      - key: APP_ENCRYPTION_KEY
+        sync: false
+      # เฉพาะยามอยากเติมข้อมูลทดสอบตอนแรก — seed ลบข้อมูลเดิมก่อน เปิดแล้วระวัง
+      - key: RUN_SEED
+        sync: false

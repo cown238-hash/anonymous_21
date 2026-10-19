@@ -41,7 +41,9 @@ if (!email || !password) {
 }
 
 const env = loadEnvFile(path.join(root, `.env${envName === 'development' ? '' : `.${envName}`}`));
-const port = env.PORT || '4000';
+// Inside a container there is no .env file — compose injects the same values as
+// real environment variables, so fall back to those.
+const port = process.env.PORT || env.PORT || '4000';
 const api = `http://localhost:${port}/api`;
 
 const username = email
@@ -84,7 +86,8 @@ console.log(`✓ registered ${email} as ${username} (id ${userId})`);
 // Promote through Prisma rather than the admin API: this account is the thing
 // being bootstrapped, so it cannot yet sign in as an admin.
 const { PrismaClient } = await import('@prisma/client');
-const prisma = new PrismaClient({ datasources: { db: { url: env.DATABASE_URL } } });
+const databaseUrl = process.env.DATABASE_URL || env.DATABASE_URL;
+const prisma = new PrismaClient(databaseUrl ? { datasources: { db: { url: databaseUrl } } } : {});
 try {
   await prisma.user.update({
     where: { id: userId },

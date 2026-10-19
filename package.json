@@ -31,7 +31,10 @@
     "db:migrate": "npm run db:migrate --workspace server",
     "db:apply": "npm run db:apply --workspace server",
     "jobs": "npm run jobs --workspace server",
-    "uploads:prune": "npm run uploads:prune --workspace server"
+    "uploads:prune": "npm run uploads:prune --workspace server",
+    "purge:content": "npm run purge:content --workspace server",
+    "categories:add": "npm run categories:add --workspace server",
+    "preflight": "npm run preflight --workspace server"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

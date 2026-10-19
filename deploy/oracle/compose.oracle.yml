@@ -1,0 +1,25 @@
+# Oracle Cloud overrides, layered on top of the root docker-compose.yml.
+#
+#   docker compose -f docker-compose.yml -f deploy/oracle/compose.oracle.yml <command>
+#
+# `!reset` needs Compose v2.17+ (Ubuntu 24.04 repo ships newer). On an older
+# compose, drop the `ports:` lines from docker-compose.yml instead.
+#
+# Two changes:
+#   1. the app port binds to 127.0.0.1 only — TLS ends at the host Caddy proxy,
+#      so plaintext HTTP never leaves the VM
+#   2. the database is published to the host on loopback only — the admin and
+#      backup scripts (create-admin.mjs, set-password.mjs, backup.sh) need it,
+#      but nothing outside the VM can reach it
+# Both images used here (node:22-alpine, postgres:16-alpine) run natively on
+# Ampere A1 (ARM64).
+
+services:
+  app:
+    ports: !reset
+      - "127.0.0.1:${APP_PORT:-4000}:4000"
+
+  db:
+    ports: !reset
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    restart: unless-stopped

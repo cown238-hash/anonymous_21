@@ -24,6 +24,10 @@ RUN npm ci --workspaces --include-workspace-root
 
 COPY server ./server
 COPY client ./client
+# The Prisma client must exist before tsc runs: the server imports generated
+# enums (Role, PostStatus, ...) from '@prisma/client'. The postinstall above
+# cannot generate it, because the schema is not in the image at that point.
+RUN npm run db:generate --workspace server
 RUN npm run build
 
 
@@ -42,6 +46,9 @@ COPY --from=deps  /app/node_modules          ./node_modules
 COPY --from=build /app/server/dist           ./server/dist
 COPY --from=build /app/server/prisma         ./server/prisma
 COPY --from=build /app/server/package.json   ./server/package.json
+# Ops scripts documented for first boot and recovery: create-admin, set-password,
+# preflight. They only need Node and a reachable API/database.
+COPY --from=build /app/server/scripts        ./server/scripts
 COPY --from=build /app/client/dist           ./client/dist
 COPY package.json ./package.json
 

@@ -76,6 +76,13 @@ const schema = z.object({
   MAX_ATTACHMENTS_PER_POST: z.coerce.number().int().min(1).max(50).default(20),
 
   TRUST_PROXY: bool,
+  /// How many reverse proxies stand in front of the app, which is what makes
+  /// `X-Forwarded-For` resolvable to the real visitor. 1 = one proxy (Caddy on
+  /// the same VM); 2 = Cloudflare in front of that proxy. Getting this wrong
+  /// makes the rate limiter key on someone else's IP — the edge address
+  /// instead of the visitor's — so a handful of users can exhaust the budget
+  /// for everybody on that hop.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(1).max(10).default(1),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 
   // ---- Email (SMTP). Unset -> emails are written to the log instead. ----

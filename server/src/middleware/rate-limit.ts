@@ -5,7 +5,9 @@ function make(overrides: Partial<Options>) {
   return rateLimit({
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    ...(env.isProd ? { trustProxy: 1 } : {}),
+    // Must mirror the Express `trust proxy` hop count, or the limiter buckets
+    // requests by the outermost proxy's IP rather than the visitor's.
+    ...(env.isProd ? { trustProxy: env.TRUST_PROXY_HOPS } : {}),
     ...overrides,
   });
 }

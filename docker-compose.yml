@@ -38,7 +38,11 @@ services:
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:4000}
       CLIENT_ORIGINS: ${CLIENT_ORIGINS:-http://localhost:4000}
+      # 1 = TLS ends at a single local proxy (Caddy on the VM itself).
+      # 2 = Cloudflare in front of that proxy — needed so rate limits and logs
+      # key on the real visitor instead of the Cloudflare edge address.
       TRUST_PROXY: 'true'
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # SMTP is optional; without it emails are logged instead of sent.
       SMTP_HOST: ${SMTP_HOST:-}
