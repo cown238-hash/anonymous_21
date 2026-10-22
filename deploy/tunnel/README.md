@@ -21,10 +21,12 @@
 | `start-app.ps1` | รัน API + client ที่ build แล้ว (`client/dist`) โหมด production บน `127.0.0.1:4000` — ตายแล้วรีสตาร์ตเองทุก 5 วิ |
 | `start-tunnel.ps1` | รัน `cloudflared` ด้วย config ใน `%USERPROFILE%\.cloudflared\config.yml` — รีสตาร์ตเองเช่นกัน |
 | `start-all.ps1` | เปิดทั้งสองเป็น process เบื้องหลัง — **ตัวที่ Windows เรียกตอนล็อกอิน** |
+| `watchdog.ps1` | เช็คทุก 2 นาทีว่ามี supervisor ทั้งสองตัวอยู่ไหม — ถ้าหายไป (เช่น Windows ฆ่าตอน sleep) เรียก `start-all.ps1` กลับมาให้ |
 
 Windows เรียก `start-all.ps1` ผ่านไฟล์ `WKSL.vbs` ที่วางไว้ใน Startup folder
 (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\WKSL.vbs`) ซึ่งรันแบบ
-ซ่อนหน้าต่างและไม่ต้องใช้สิทธิ์ admin
+ซ่อนหน้าต่างและไม่ต้องใช้สิทธิ์ admin — และมี `WKSL-Watchdog.vbs` ตัวที่สองคอย
+เรียก `watchdog.ps1` (ตัว watchdog จะเรียก `start-all.ps1` เองเมื่อจำเป็น)
 
 > **ทำไมไม่ใช้ scheduled task:** บัญชีผู้ใช้ธรรมดาสร้าง task ไม่ได้ — ทั้ง
 > `Register-ScheduledTask` และ `schtasks /create` ตอบ `Access is denied`
@@ -58,6 +60,13 @@ Windows เรียก `start-all.ps1` ผ่านไฟล์ `WKSL.vbs` ท�
    shell.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -File <repo>\deploy\tunnel\start-all.ps1", 0, False
    ```
    เลข `0, False` = ซ่อนหน้าต่าง และไม่รอให้จบ (ไม่บล็อกการล็อกอิน)
+6. ตัวคุมความเรียบร้อย — สร้าง `WKSL-Watchdog.vbs` ใน Startup folder เดียวกัน:
+   ```vbs
+   ' Restarts the WKSL supervisors if Windows ever ends them.
+   Set shell = CreateObject("WScript.Shell")
+   shell.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -File <repo>\deploy\tunnel\watchdog.ps1", 0, False
+   ```
+   ใช้ mutex กันเปิดซ้ำ และสั่ง supervisor ผ่าน WMI เพื่อให้ไม่ตายตาม process แม่
 
 ## ค่าที่ต้องตรงกัน 3 ที่ (ไม่งั้น tunnel ต่อได้แต่แอปนับ IP ผิด)
 
@@ -103,6 +112,11 @@ log อยู่ที่ `logs\app.log` และ `logs\tunnel.log` (ตัด�
   หรือรอ cache หมดอายุ ส่วนคนอื่นเปิดได้ปกติ
 - อย่าลบ `WKSL.vbs` ออกจาก Startup folder แล้วคาดว่าเว็บจะยังอยู่ — มันคือตัวที่ทำให้เว็บกลับมาเอง
 - ถ้าเครื่องรีสตาร์ตแล้ว**ยังไม่ล็อกอิน Windows** เว็บจะยังไม่ขึ้น (Startup folder ทำงานตอนล็อกอินเท่านั้น)
+- **เครื่องหลับ = เว็บล่มทันที** (cloudflared เห็น connection หลุดหมดแล้วจบการทำงาน) —
+  ตั้งไม่ให้หลับเมื่อเสียบปลั๊ก: `powercfg /change standby-timeout-ac 0` และเสียบอะแดปเตอร์ตลอด
+  ถ้าปิดฝาแล้วเครื่องหลับ ให้ตั้ง Control Panel → Power Options → *Choose what closing the lid does*
+  เป็น **Do nothing** (บางรุ่นซ่อนค่านี้จาก `powercfg`) — ระหว่างหลับ watchdog ก็หลับไปด้วย
+- สงสัยว่า supervisor ตายหรือเปล่า: ดู `logs\watchdog.log` (watchdog เขียนทุกครั้งที่ต้องปลุกกลับมา)
 - ตรวจว่า proxy ยังตั้งถูก: เปิด `https://app.wksl.site/api/health` แล้วดู `ip=` ใน `logs\app.log`
   — ถ้าเห็น `127.0.0.1` แปลว่า `TRUST_PROXY`/`TRUST_PROXY_HOPS` หลุด ให้แก้ก่อนใช้งานจริง
 - อัปเดตโค้ด: `npm run build` → หยุด process ที่พอร์ต 4000 → supervisor จะรีสตาร์ตด้วย build ใหม่เอง
