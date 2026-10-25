@@ -28,9 +28,21 @@ import { AttachmentPicker, type PendingUpload } from '../components/Attachments'
 import { formatBytes } from '../lib/format';
 import type { Attachment, Category, Post, PostStatus } from '../types';
 
-/** Mirrors the server caps so the UI can refuse before a round trip. */
-const MAX_FILES = 20;
-const MAX_MB = 5;
+/**
+ * Fallbacks used until GET /api/config answers (and if it never does) — they
+ * mirror the server's own defaults so the picker is never wider than what the
+ * upload route will accept.
+ */
+const DEFAULT_MAX_FILES = 20;
+const DEFAULT_MAX_MB = 5;
+const DEFAULT_MAX_FILES_PER_REQUEST = 10;
+
+/** Caps the editor needs before letting a file leave the browser. */
+interface UploadCaps {
+  maxUploadMb: number;
+  maxFilesPerUpload: number;
+  maxAttachmentsPerPost: number;
+}
 
 const STATUS_OPTIOiS: Array<{ value: PostStatus; label: string }> = [
   { value: 'PUBLISHED', label: 'เผยแพร่' },
@@ -72,6 +84,17 @@ export function PostEditorPage() {
     queryKey: ['categories'],
     queryFn: () => api.get<Category[]>('/categories'),
   });
+
+  // Upload caps come from the server so .env is the single place to change them.
+  const { data: caps } = useQuery({
+    queryKey: ['upload-caps'],
+    queryFn: () => api.get<UploadCaps>('/config'),
+    staleTime: 5 * 60_000,
+  });
+  const MAX_MB = caps?.maxUploadMb ?? DEFAULT_MAX_MB;
+  const MAX_FILES = caps?.maxAttachmentsPerPost ?? DEFAULT_MAX_FILES;
+  // One request cannot carry more than this many files, whatever room is left.
+  const MAX_PER_REQUEST = caps?.maxFilesPerUpload ?? DEFAULT_MAX_FILES_PER_REQUEST;
 
   // Load the existing post when editing.
   const { data: existing, isLoading } = useQuery({
@@ -138,8 +161,15 @@ export function PostEditorPage() {
       toast.info(`เลือกได้เพียง ${room} ไฟล์ (สูงสุด ${MAX_FILES} ไฟล์)`);
     }
 
-    const tooBig = accepted.filter((f) => f.size > MAX_MB * 1024 * 1024);
-    const usable = accepted.filter((f) => f.size <= MAX_MB * 1024 * 1024);
+    // Sending more than the server accepts in one request fails the whole
+    // batch, so hold the rest back and say so instead of dropping them.
+    const batch = accepted.slice(0, MAX_PER_REQUEST);
+    if (batch.length < accepted.length) {
+      toast.info(`อัปโหลดครั้งละไม่เกิน ${MAX_PER_REQUEST} ไฟล์ — เหลือ ${accepted.length - batch.length} ไฟล์ ให้เลือกเพิ่มอีกรอบ`);
+    }
+
+    const tooBig = batch.filter((f) => f.size > MAX_MB * 1024 * 1024);
+    const usable = batch.filter((f) => f.size <= MAX_MB * 1024 * 1024);
     for (const file of tooBig) {
       toast.error(`${file.name} ใหญ่เกิน ${MAX_MB} MB (${formatBytes(file.size)})`);
     }
@@ -460,7 +490,9 @@ export function PostEditorPage() {
                   <ImageIcon size={22} className="text-ink-400" />
                 )}
                 <span className="text-xs text-ink-500">
-                  {uploading ? 'กำลังอัปโหลด…' : 'คลิกเพื่ออัปโหลดภาพ (สูงสุด 5 MB)'}
+                  {uploading
+                    ? 'กำลังอัปโหลด…'
+                    : `คลิกเพื่ออัปโหลดภาพ (สูงสุด ${MAX_MB} MB)`}
                 </span>
                 <input
                   type="file"

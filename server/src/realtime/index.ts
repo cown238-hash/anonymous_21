@@ -4,7 +4,8 @@ import { prisma } from '../lib/prisma.js';
 import { env } from '../config/env.js';
 import { verifyAccessToken } from '../lib/tokens.js';
 import { publicUserSelect, serializeUser } from '../serializers/index.js';
-import { broadcast, emitToUser, setIo, userRoom } from './emitter.js';
+import { broadcast, emitToUser, onlineUserIds, setIo, userRoom } from './emitter.js';
+import { sendWebPush } from '../services/push.js';
 
 interface SocketData {
   userId: string;
@@ -181,11 +182,15 @@ export function createSocketServer(httpServer: HttpServer): Server {
           where: { conversationId, userId: { not: me.userId } },
           select: { userId: true },
         });
+        const convo = await prisma.conversation.findUnique({
+          where: { id: conversationId },
+          select: { title: true, isDirect: true },
+        });
+        // Chat carries no persisted Notification row, so web push is the only
+        // way a recipient hears about it once the socket drops. Anyone with a
+        // live socket already saw the in-app toast; skip them.
+        const connected = new Set(onlineUserIds());
         for (const r of recipients) {
-          const convo = await prisma.conversation.findUnique({
-            where: { id: conversationId },
-            select: { title: true, isDirect: true },
-          });
           emitToUser(r.userId, 'notification:new', {
             id: `msg-${message.id}`,
             type: 'MESSAGE',
@@ -196,6 +201,16 @@ export function createSocketServer(httpServer: HttpServer): Server {
             createdAt: message.createdAt,
             transient: true,
           });
+          if (!connected.has(r.userId)) {
+            void sendWebPush(r.userId, {
+              title: me.displayName,
+              body: content.slice(0, 120),
+              href: `/chat?c=${conversationId}`,
+              // One ongoing conversation stacks into a single lock-screen
+              // entry instead of one notification per message.
+              tag: `chat-${conversationId}`,
+            });
+          }
         }
       } catch (err) {
         // eslint-disable-next-line no-console

@@ -153,6 +153,13 @@ export function createApp() {
           if (filePath.endsWith('index.html')) res.setHeader('cache-control', 'no-cache');
           // Never let a stale bundle pin users to a broken deploy.
           if (filePath.endsWith('.html')) res.setHeader('cache-control', 'no-cache');
+          // The service worker script must be revalidated every visit, or
+          // browsers hold on to an old worker (and its old cache) for up to
+          // maxAge. A year is the death of an SW update.
+          if (filePath.endsWith('sw.js')) res.setHeader('cache-control', 'no-cache');
+          // Manifest is small and changes with branding — an hour keeps it
+          // fresh without a request per navigation.
+          if (filePath.endsWith('.webmanifest')) res.setHeader('cache-control', 'public, max-age=3600');
         },
       }),
     );

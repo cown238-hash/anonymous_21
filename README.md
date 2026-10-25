@@ -54,7 +54,7 @@
 - อัปโหลดหลายไฟล์พร้อมกัน — เอกสาร, รูปภาพ, ตาราง, สไลด์, ซิป, วิดีโอ/เสียง, ซอร์สโค้ด, ฟอนต์ (**68 นามสกุล**)
 - ลากไฟล์มาวางในหน้าเขียนบทความได้, นำออก/เพิ่มได้ภายหลัง, แก้ไขบทความเดิมได้
 - รายการไฟล์ในหน้าอ่านพร้อมชนิดและขนาด, การ์ดหน้าเลือกมีจำนวนไฟล์แนบ
-- **จำกัด** — `MAX_UPLOAD_MB` ต่อไฟล์, `MAX_FILES_PER_UPLOAD` ต่อครั้ง, `MAX_ATTACHMENTS_PER_POST` ต่อบทความ
+- **จำกัด** — `MAX_UPLOAD_MB` ต่อไฟล์, `MAX_FILES_PER_UPLOAD` ต่อครั้ง, `MAX_ATTACHMENTS_PER_POST` ต่อบทความ (client ดึงค่าจาก `GET /api/config` จึงไม่ hardcode ซ้ำ)
 
 **ความปลอดภัย**
 - อัปโหลด → ได้ `Attachment` id → บทความ "claim" id ตอนบันทึก แนบไฟล์ของคนอื่นไม่ได้
@@ -392,7 +392,7 @@ BACKUP_S3_BUCKET=my-bucket ./scripts/backup.sh   # อัปโหลดขึ�
 | `EMAIL_VERIFY_TTL_HOURS` | `48` | อายุลิงก์ยืนยันอีเมล |
 | `AUTH_LIMIT_MAX` | `20` | จำนวนครั้งที่ **ล็อกอินล้มเหลว** ต่อ IP ก่อนถูกจำกัดอัตรา (เฉพาะครั้งที่ล้มเหลว) |
 | `AUTH_LIMIT_WINDOW_MINUTES` | `15` | ความยาวหน้าต่างของตัวจำกัดอัตรา |
-| `MAX_UPLOAD_MB` | `5` | ขนาดสูงสุดต่อไฟล์ที่อัปโหลด |
+| `MAX_UPLOAD_MB` | `5` | ขนาดสูงสุดต่อไฟล์ที่อัปโหลด — ค่าที่ client ใช้เช็คก่อนส่งมาจาก `GET /api/config` (เปลี่ยน `.env` แล้วไม่ต้อง build client ใหม่) ถ้ารันหลัง Cloudflare ให้ไม่เกิน 100 เพราะ edge ของ Cloudflare ปฏิเสธ request ใหญ่กว่านั้น |
 | `MAX_FILES_PER_UPLOAD` | `10` | จำนวนไฟล์สูงสุดต่อคำขออัปโหลดหลายไฟล์ |
 | `MAX_ATTACHMENTS_PER_POST` | `20` | จำนวนไฟล์แนบสูงสุดต่อบทความ |
 | `SMTP_*` | — | เว้นว่างไว้ = อีเมลถูกพิมพ์ลง log |
@@ -408,6 +408,8 @@ BACKUP_S3_BUCKET=my-bucket ./scripts/backup.sh   # อัปโหลดขึ�
 | `ERROR_REPORT_ENDPOINT` | — | ถ้าไม่ตั้ง client error จะถูก log ไว้เท่านั้น |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | เปิดปุ่มสมัคร/เข้าสู่ระบบด้วย Google — เว้นว่าง = ปุ่มไม่แสดง |
 | `GOOGLE_OAUTH_REDIRECT` | `<PUBLIC_URL>/api/auth/google/callback` | ใส่เฉพาะเมื่อ redirect URI ไม่ตรงกับ PUBLIC_URL |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | — | เปิด web push — เว้นว่างทั้งคู่ = ปิด (ปุ่มในหน้าตั้งค่าไม่แสดง) สร้างคู่ใหม่ด้วย `npx web-push generate-vapid-keys` |
+| `VAPID_SUBJECT` | `mailto:admin@<PUBLIC_URL host>` | ช่องทางติดต่อที่ push service ใช้แจ้งเจ้าของแอป |
 
 ---
 

@@ -1,0 +1,31 @@
+# Azure VM overrides, layered on top of the root docker-compose.yml.
+#
+#   docker compose -f docker-compose.yml -f deploy/azure/compose.azure.yml <command>
+#
+# Three changes:
+#   1. `app` runs the PREBUILT image from ghcr.io (built by
+#      .github/workflows/image.yml) and never builds: the VM has 1 GB of RAM.
+#      Always run `pull` before `up`. `build` is reset away so that even an
+#      `up` without a pull can't fall back to building on the VM.
+#   2. `db` runs postgres:18-alpine: the live database was created by
+#      PostgreSQL 18 on the Windows machine, and pg_dump output from a newer
+#      server cannot be restored into an older one (deploy/azure/export-data.ps1
+#      dumps with the local pg_dump 18).
+#   3. both ports bind to 127.0.0.1 only: TLS ends at the Cloudflare edge, the
+#      tunnel reaches the app over loopback, and nothing is published to the
+#      internet.
+#
+# `!reset` needs Compose v2.17+ (bootstrap.sh installs the current plugin).
+
+services:
+  app:
+    image: ghcr.io/cown238-hash/anonymous_21:latest
+    build: !reset null
+    ports: !reset
+      - "127.0.0.1:${APP_PORT:-4000}:4000"
+
+  db:
+    image: postgres:18-alpine
+    ports: !reset
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    restart: unless-stopped

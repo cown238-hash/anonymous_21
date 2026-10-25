@@ -93,6 +93,7 @@ model User {
   messages           Message[]
   notifications      Notification[] @relation("NotificationRecipient")
   triggeredNotifs    Notification[] @relation("NotificationActor")
+  pushSubscriptions  PushSubscription[]
   reports            Report[]       @relation("ReportReporter")
   auditLogs          AuditLog[]     @relation("AuditActor")
   uploads            Attachment[]   @relation("AttachmentUploader")
@@ -383,4 +384,26 @@ model Notification {
   actor User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([userId, readAt, createdAt])
+}
+
+/// One row per browser the user opted into web push with. `endpoint` is
+/// unique globally because the push service issues it per browser+app — the
+/// same device re-subscribing simply moves the row to the current account.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  /// URL-safe base64 ECDH public key of the browser's key pair.
+  p256dh    String
+  /// URL-safe base64 auth secret from the subscription.
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  /// Touched on every successful subscribe so a device that stopped opening
+  /// the app can be recognised as stale.
+  lastSeenAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

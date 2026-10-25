@@ -169,6 +169,16 @@ const schema = z.object({
   // ---- Background jobs ----
   ENABLE_JOBS: bool,
   JOB_INTERVAL_MINUTES: z.coerce.number().int().min(1).default(15),
+
+  // ---- Web push (optional) ----
+  /// VAPID credentials for Web Push. Unset (either one) means the feature is
+  /// off: `/api/push/public-key` reports `enabled: false` and the client hides
+  /// the toggle. Generate with `npx web-push generate-vapid-keys`.
+  VAPID_PUBLIC_KEY: blank,
+  VAPID_PRIVATE_KEY: blank,
+  /// `mailto:` address or `https://` URL the push services may use to contact
+  /// the app operator. Required by the VAPID spec when sending.
+  VAPID_SUBJECT: blank,
 });
 
 const parsed = schema.safeParse(process.env);
@@ -201,7 +211,23 @@ export const env = {
   serverRoot,
   /** True when an actual SMTP transport is configured. */
   smtpEnabled: Boolean(raw.SMTP_HOST && raw.SMTP_PORT),
+  /**
+   * True when both VAPID keys are present. Subject falls back to the public
+   * URL — VAPID wants an operator contact, and a `mailto:` is the one form
+   * that is always valid.
+   */
+  webPushEnabled: Boolean(raw.VAPID_PUBLIC_KEY && raw.VAPID_PRIVATE_KEY),
+  vapidSubject: raw.VAPID_SUBJECT || operatorContact(raw.PUBLIC_URL),
 } as const;
+
+/** `mailto:` from the public host, falling back when the URL cannot be parsed. */
+function operatorContact(publicUrl: string): string {
+  try {
+    return `mailto:admin@${new URL(publicUrl).host}`;
+  } catch {
+    return 'mailto:admin@localhost';
+  }
+}
 
 export function ensureUploadDir(): string {
   if (!fs.existsSync(env.uploadDir)) {

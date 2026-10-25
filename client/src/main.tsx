@@ -61,7 +61,11 @@ createRoot(container).render(
 // Unregistered in dev so HMR is never served a stale cached bundle.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
+    // `updateViaCache: 'none'` forces the browser to revalidate sw.js against
+    // the network on every update check instead of trusting its HTTP cache.
+    // A CDN that once cached sw.js with a long max-age would otherwise pin
+    // every visitor to an old worker (missing new handlers like web push).
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {
       // A failed registration must never break the app.
     });
   });

@@ -1,6 +1,7 @@
 import { NotificationType, type Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { emitToUser } from '../realtime/emitter.js';
+import { sendWebPush } from './push.js';
 
 export interface NotifyInput {
   userId: string;
@@ -39,6 +40,17 @@ export async function notify(input: NotifyInput): Promise<void> {
       href: row.href,
       readAt: row.readAt,
       createdAt: row.createdAt,
+    });
+    // Web push is a second channel for the same event. It fires even when a
+    // tab is open because a backgrounded tab keeps its socket alive yet the
+    // user never sees the toast; the service worker suppresses the system
+    // notification when a window is already focused, so a foreground user
+    // does not get it twice.
+    void sendWebPush(input.userId, {
+      title: row.title,
+      body: row.body,
+      href: row.href,
+      tag: `notif-${row.type.toLowerCase()}`,
     });
   } catch (err) {
     // eslint-disable-next-line no-console

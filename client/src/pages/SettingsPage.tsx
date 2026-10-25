@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Camera, CloudMoon, EyeOff, Loader2, Monitor, Moon, Save, Sun } from 'lucide-react';
+import { Bell, Camera, CloudMoon, EyeOff, Loader2, Monitor, Moon, Save, Sun } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { setMotionPref, useMotionPref } from '../lib/motion-pref';
+import {
+  disablePush,
+  enablePush,
+  fetchPushStatus,
+  isPushSubscribed,
+  notificationPermission,
+  pushSupported,
+} from '../lib/push';
 import { toast } from '../lib/toast';
 import { useSeo } from '../lib/seo';
 import { Alert, Avatar } from '../components/ui';
@@ -28,6 +36,13 @@ export function SettingsPage() {
     () => (localStorage.getItem('nimbus.theme') as Theme) ?? 'system',
   );
 
+  // Web push: the toggle is only shown when this browser can do it *and* the
+  // server has VAPID keys configured.
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushAvailable, setPushAvailable] = useState(false);
+  const [pushNote, setPushNote] = useState<string | null>(null);
+
   useSeo({
     title: 'ตั้งค่าบัญชี',
     description: 'จัดการโปรไฟล์ ความปลอดภัย และข้อมูลของคุณบน WKSL',
@@ -45,6 +60,53 @@ export function SettingsPage() {
       avatarUrl: user.avatarUrl ?? '',
     });
   }, [user]);
+
+  // Read the current state once: available (browser + server), and whether
+  // this browser already subscribed (survives reloads; the browser keeps the
+  // subscription, we only asked the server to remember it).
+  useEffect(() => {
+    if (!user || !pushSupported()) return;
+    let cancelled = false;
+    (async () => {
+      const status = await fetchPushStatus().catch(() => null);
+      if (cancelled) return;
+      const available = Boolean(status?.enabled && status.publicKey);
+      setPushAvailable(available);
+      if (available) setPushOn(await isPushSubscribed());
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const togglePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    setPushNote(null);
+    try {
+      if (pushOn) {
+        await disablePush();
+        setPushOn(false);
+        toast.success('ปิดการแจ้งเตือนบนอุปกรณ์นี้แล้ว');
+        return;
+      }
+      const result = await enablePush();
+      if (result === 'enabled') {
+        setPushOn(true);
+        toast.success('เปิดการแจ้งเตือนบนอุปกรณ์นี้แล้ว');
+      } else if (result === 'denied') {
+        setPushNote('เบราว์เซอร์ปฏิเสธการแจ้งเตือน — เปิดสิทธิ์การแจ้งเตือนในการตั้งค่าเบราว์เซอร์ แล้วลองใหม่อีกครั้ง');
+      } else if (result === 'unavailable') {
+        setPushNote('เซิร์ฟเวอร์ยังไม่ได้เปิดการแจ้งเตือนแบบ Push');
+      } else {
+        setPushNote('เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือนแบบ Push');
+      }
+    } catch (err) {
+      setPushNote(err instanceof Error ? err.message : 'เปิดการแจ้งเตือนไม่สำเร็จ');
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -282,6 +344,58 @@ export function SettingsPage() {
           </button>
         </div>
       </section>
+
+      {/* Notifications (web push) — only when this browser and the server
+          can both do it. */}
+      {pushSupported() && pushAvailable && (
+        <section className="card p-6">
+          <h2 className="mb-1 flex items-center gap-2 text-base font-semibold">
+            <Bell size={16} className="text-brand-500" /> การแจ้งเตือน
+          </h2>
+          <p className="mb-5 text-sm text-ink-500">
+            รับการแจ้งเตือนบนอุปกรณ์นี้เมื่อมีคนตอบความคิดเห็น ถูกใจบทความของคุณ หรือส่งข้อความเข้ามา
+            แม้จะไม่ได้เปิดแอปค้างไว้
+          </p>
+
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-ink-500/12 bg-surface-1 px-4 py-3.5">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink-900">การแจ้งเตือนบนอุปกรณ์นี้</p>
+              <p className="mt-0.5 text-xs text-ink-400">
+                {notificationPermission() === 'denied'
+                  ? 'เบราว์เซอร์บล็อกการแจ้งเตือนของเว็บนี้ไว้ — ต้องอนุญาตใหม่ในการตั้งค่าเบราว์เซอร์'
+                  : pushOn
+                    ? 'เปิดอยู่ — จะได้รับการแจ้งเตือนแม้ไม่ได้เปิดแอป'
+                    : 'ปิดอยู่'}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={pushOn}
+              aria-label="การแจ้งเตือนบนอุปกรณ์นี้"
+              disabled={pushBusy || notificationPermission() === 'denied'}
+              onClick={() => void togglePush()}
+              className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+                pushOn ? 'bg-brand-500' : 'bg-surface-3'
+              }`}
+            >
+              <span
+                className={`absolute top-1 left-1 grid h-5 w-5 place-items-center rounded-full bg-white shadow transition-transform ${
+                  pushOn ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              >
+                {pushBusy ? (
+                  <Loader2 size={12} className="animate-spin text-ink-400" />
+                ) : (
+                  <Bell size={12} className={pushOn ? 'text-brand-600' : 'text-ink-400'} />
+                )}
+              </span>
+            </button>
+          </div>
+
+          {pushNote && <Alert kind="info" className="mt-3">{pushNote}</Alert>}
+        </section>
+      )}
 
       {/* Appearance */}
       <section className="card p-6">

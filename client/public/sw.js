@@ -86,3 +86,62 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
+
+// ---- Web push -----------------------------------------------------------
+// Payload from /api/push: { title, body, href, tag }.
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: 'WKSL', body: event.data ? event.data.text() : '' };
+  }
+
+  event.waitUntil(
+    (async () => {
+      // The server also emits the same event over the socket. If a window is
+      // visible and focused the user already saw the in-app toast, so a
+      // system notification would just be the same message twice.
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const focused = clients.some((c) => c.visibilityState === 'visible' && c.focused);
+      if (focused) return;
+
+      await self.registration.showNotification(data.title || 'WKSL', {
+        body: data.body || '',
+        icon: '/icons/icon-192.png',
+        badge: '/icons/favicon-32.png',
+        tag: data.tag,
+        renotify: Boolean(data.tag),
+        data: { href: data.href || '/' },
+      });
+    })(),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const href = event.notification.data?.href || '/';
+
+  event.waitUntil(
+    (async () => {
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of clients) {
+        if ('focus' in client) {
+          await client.focus();
+          // Same-origin href: navigate the existing tab instead of stacking
+          // a new one for every click.
+          if ('navigate' in client) {
+            try {
+              await client.navigate(href);
+            } catch {
+              /* tab closed mid-flight, nothing to do */
+            }
+          }
+          return;
+        }
+      }
+      await self.clients.openWindow(href);
+    })(),
+  );
+});

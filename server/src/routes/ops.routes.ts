@@ -1,8 +1,25 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { asyncHandler } from '../lib/async-handler.js';
+import { ok } from '../lib/http.js';
+import { env } from '../config/env.js';
 
 const router = Router();
+
+/**
+ * GET /api/config - public client bootstrap values.
+ *
+ * The editor refuses oversized files before a round trip, so it has to know the
+ * caps the server enforces. Reading them from here keeps one source of truth:
+ * bumping MAX_UPLOAD_MB in .env changes both ends, with no client rebuild.
+ */
+router.get('/config', (_req, res) =>
+  ok(res, {
+    maxUploadMb: env.MAX_UPLOAD_MB,
+    maxFilesPerUpload: env.MAX_FILES_PER_UPLOAD,
+    maxAttachmentsPerPost: env.MAX_ATTACHMENTS_PER_POST,
+  }),
+);
 
 /**
  * GET /api/health - shallow liveness probe. Never touches the database so a

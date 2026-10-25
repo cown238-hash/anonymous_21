@@ -12,7 +12,7 @@
 | --- | --- |
 | ฟรี 100% ไม่ต้องใช้บัตร, ไม่ต้องมี IP สาธารณะ, ไม่ต้องเปิด port | **เครื่องต้องเปิดอยู่** — ปิด/หลับ = เว็บล่ม |
 | ฟีเจอร์ครบ: realtime, อัปโหลดไฟล์, Postgres, HTTPS จริง | bandwidth วิ่งผ่านเน็ตบ้านของคุณ |
-| ไม่แตะ DNS ของ apex (`wksl.site` = เว็บ GSO เหมือนเดิม) | จัดการ TLS/cache ที่ Cloudflare ไม่ได้ปรับละเอียดเท่า Caddy |
+| apex `wksl.site` กับ `app.wksl.site` เปิดแอปได้ทั้งคู่ (canonical = `app.wksl.site`) | จัดการ TLS/cache ที่ Cloudflare ไม่ได้ปรับละเอียดเท่า Caddy |
 
 ## โครงสร้าง
 
@@ -41,14 +41,21 @@ Windows เรียก `start-all.ps1` ผ่านไฟล์ `WKSL.vbs` ท�
    ```powershell
    cloudflared tunnel create wksl
    cloudflared tunnel route dns wksl app.wksl.site
+   cloudflared tunnel route dns --overwrite-dns wksl wksl.site
    ```
    คำสั่งที่สองจะ **เพิ่ม CNAME `app.wksl.site`** ชี้เข้า tunnel — ไม่ลบ/แก้ record เดิม
+   ส่วนคำสั่งที่สามชี้ apex เข้า tunnel ด้วย (เปิด `wksl.site` ก็เจอแอป) ซึ่ง
+   **ต้องใช้ `--overwrite-dns`** เพราะ apex มี record เดิมอยู่ (ตัว command จะพิมพ์
+   `Failed to add CNAME ... Tunnel is not yet registered` แต่ให้ดูแถว "Added CNAME"
+   ที่แสดงไว้ — ถ้ามีแถวนั้นแปลว่าสำเร็จแล้ว)
 4. เขียน `%USERPROFILE%\.cloudflared\config.yml`:
    ```yaml
    tunnel: <TUNNEL_ID>
    credentials-file: C:\Users\<you>\.cloudflared\<TUNNEL_ID>.json
    ingress:
      - hostname: app.wksl.site
+       service: http://localhost:4000
+     - hostname: wksl.site
        service: http://localhost:4000
      - service: http_status:404
    ```
@@ -72,8 +79,8 @@ Windows เรียก `start-all.ps1` ผ่านไฟล์ `WKSL.vbs` ท�
 
 | ที่ | ค่า |
 | --- | --- |
-| `config.yml` | `hostname: app.wksl.site` → `service: http://localhost:4000` |
-| root `.env` | `PUBLIC_URL` / `CLIENT_ORIGINS` = `https://app.wksl.site` |
+| `config.yml` | `hostname: app.wksl.site` และ `wksl.site` → `service: http://localhost:4000` |
+| root `.env` | `PUBLIC_URL=https://app.wksl.site` (canonical) และ `CLIENT_ORIGINS=https://app.wksl.site,https://wksl.site,http://localhost:5173` |
 | root `.env` | **`TRUST_PROXY=true` + `TRUST_PROXY_HOPS=1`** |
 
 `TRUST_PROXY_HOPS=1` เพราะ cloudflared เป็น proxy เดียวที่แอปมองเห็น — ถ้าปิด
@@ -121,3 +128,8 @@ log อยู่ที่ `logs\app.log` และ `logs\tunnel.log` (ตัด�
   — ถ้าเห็น `127.0.0.1` แปลว่า `TRUST_PROXY`/`TRUST_PROXY_HOPS` หลุด ให้แก้ก่อนใช้งานจริง
 - อัปเดตโค้ด: `npm run build` → หยุด process ที่พอร์ต 4000 → supervisor จะรีสตาร์ตด้วย build ใหม่เอง
   (tunnel ไม่ต้องแตะ)
+- หลัง deploy ที่แตะ `sw.js` ให้เช็คว่า edge Cloudflare เสิร์ฟตัวใหม่หรือยัง
+  (เก่า = push ไม่ทำงาน): `powershell -ExecutionPolicy Bypass -File deploy\tunnel\check-sw-cache.ps1`
+  ถ้ายังเป็น `push:MISSING` ให้ purge ที่ dashboard (Caching → Configuration → Custom Purge URL:
+  `https://app.wksl.site/sw.js` กับ `https://wksl.site/sw.js`) — ตัว origin ส่ง `Cache-Control: no-cache`
+  ให้แล้วจึงรอ edge หมดอายุเองก็ได้

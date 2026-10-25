@@ -98,6 +98,7 @@ router.get('/manifest.webmanifest', (_req, res) => {
         description: 'แพลตฟอร์มชุมชนสำหรับแชร์ความรู้ พร้อมแชทแบบเรียลไทม์',
         start_url: '/',
         scope: '/',
+        id: '/',
         display: 'standalone',
         orientation: 'portrait-primary',
         background_color: '#050505',
