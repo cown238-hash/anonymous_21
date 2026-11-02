@@ -131,6 +131,187 @@ export function createSocketServer(httpServer: HttpServer): Server {
       });
     });
 
+    // ---- Watch Party rooms -------------------------------------------------
+    interface WatchRoom {
+      hostId: string;
+      mediaUrl: string;
+      mediaType: 'video' | 'audio' | 'image';
+      currentTime: number;
+      isPlaying: boolean;
+      updatedAt: number;
+      users: Set<string>;
+    }
+    const watchRooms = new Map<string, WatchRoom>();
+
+    function watchRoomId(_roomId: string) {
+      return 'watch:main';
+    }
+
+    socket.on('watch:join', async (payload: { roomId: string; mediaUrl?: string; mediaType?: 'video' | 'audio' | 'image' }) => {
+      const { roomId, mediaUrl, mediaType } = payload ?? {};
+      if (!roomId) return;
+      const room = watchRoomId(roomId);
+
+      let state = watchRooms.get(roomId);
+      if (!state) {
+        state = {
+          hostId: me.userId,
+          mediaUrl: mediaUrl ?? '',
+          mediaType: mediaType ?? 'video',
+          currentTime: 0,
+          isPlaying: false,
+          updatedAt: Date.now(),
+          users: new Set(),
+        };
+        watchRooms.set(roomId, state);
+      }
+      state.users.add(me.userId);
+      await socket.join(room);
+
+      // Sync current state to the joiner.
+      socket.emit('watch:state', {
+        roomId,
+        mediaUrl: state.mediaUrl,
+        mediaType: state.mediaType,
+        currentTime: state.currentTime,
+        isPlaying: state.isPlaying,
+        updatedAt: state.updatedAt,
+        hostId: state.hostId,
+        userCount: state.users.size,
+      });
+
+      // Tell others someone joined.
+      socket.to(room).emit('watch:joined', {
+        roomId,
+        user: { id: me.userId, displayName: me.displayName, avatarUrl: me.avatarUrl },
+        userCount: state.users.size,
+      });
+    });
+
+    socket.on('watch:leave', (payload: { roomId?: string }) => {
+      const roomId = payload?.roomId;
+      if (!roomId) return;
+      const room = watchRoomId(roomId);
+      const state = watchRooms.get(roomId);
+      if (state) {
+        state.users.delete(me.userId);
+        if (state.users.size === 0) {
+          watchRooms.delete(roomId);
+        } else if (state.hostId === me.userId) {
+          // Transfer host to next user.
+          const next = state.users.values().next().value;
+          if (next) state.hostId = next;
+        }
+      }
+      socket.leave(room);
+      socket.to(room).emit('watch:left', {
+        roomId,
+        userId: me.userId,
+        userCount: state ? state.users.size : 0,
+      });
+    });
+
+    socket.on('watch:play', (payload: { roomId?: string; currentTime?: number }) => {
+      const roomId = payload?.roomId;
+      if (!roomId) return;
+      const room = watchRoomId(roomId);
+      const state = watchRooms.get(roomId);
+      if (!state) return;
+      // Only host or anyone can play; keep simple: any user can request play.
+      state.isPlaying = true;
+      if (typeof payload.currentTime === 'number') state.currentTime = payload.currentTime;
+      state.updatedAt = Date.now();
+      socket.to(room).emit('watch:played', {
+        roomId,
+        currentTime: state.currentTime,
+        isPlaying: true,
+        updatedAt: state.updatedAt,
+        by: me.userId,
+      });
+    });
+
+    socket.on('watch:pause', (payload: { roomId?: string; currentTime?: number }) => {
+      const roomId = payload?.roomId;
+      if (!roomId) return;
+      const room = watchRoomId(roomId);
+      const state = watchRooms.get(roomId);
+      if (!state) return;
+      state.isPlaying = false;
+      if (typeof payload.currentTime === 'number') state.currentTime = payload.currentTime;
+      state.updatedAt = Date.now();
+      socket.to(room).emit('watch:paused', {
+        roomId,
+        currentTime: state.currentTime,
+        isPlaying: false,
+        updatedAt: state.updatedAt,
+        by: me.userId,
+      });
+    });
+
+    socket.on('watch:seek', (payload: { roomId?: string; currentTime?: number }) => {
+      const roomId = payload?.roomId;
+      if (!roomId) return;
+      const room = watchRoomId(roomId);
+      const state = watchRooms.get(roomId);
+      if (!state) return;
+      if (typeof payload.currentTime === 'number') state.currentTime = payload.currentTime;
+      state.updatedAt = Date.now();
+      socket.to(room).emit('watch:seeked', {
+        roomId,
+        currentTime: state.currentTime,
+        isPlaying: state.isPlaying,
+        updatedAt: state.updatedAt,
+        by: me.userId,
+      });
+    });
+
+    socket.on('watch:change', (payload: { roomId?: string; mediaUrl?: string; mediaType?: 'video' | 'audio' | 'image' }) => {
+      const roomId = payload?.roomId;
+      if (!roomId) return;
+      const room = watchRoomId(roomId);
+      const state = watchRooms.get(roomId);
+      if (!state) return;
+      // Only host can change media.
+      if (state.hostId !== me.userId) return;
+      if (typeof payload.mediaUrl === 'string') state.mediaUrl = payload.mediaUrl;
+      if (payload.mediaType) state.mediaType = payload.mediaType;
+      state.currentTime = 0;
+      state.isPlaying = false;
+      state.updatedAt = Date.now();
+      socket.to(room).emit('watch:changed', {
+        roomId,
+        mediaUrl: state.mediaUrl,
+        mediaType: state.mediaType,
+        currentTime: 0,
+        isPlaying: false,
+        updatedAt: state.updatedAt,
+        by: me.userId,
+      });
+    });
+
+    socket.on('disconnecting', () => {
+      for (const room of socket.rooms) {
+        if (room.startsWith('watch:')) {
+          const roomId = room.replace('watch:', '');
+          const state = watchRooms.get(roomId);
+          if (state) {
+            state.users.delete(me.userId);
+            if (state.users.size === 0) {
+              watchRooms.delete(roomId);
+            } else if (state.hostId === me.userId) {
+              const next = state.users.values().next().value;
+              if (next) state.hostId = next;
+            }
+            socket.to(room).emit('watch:left', {
+              roomId,
+              userId: me.userId,
+              userCount: state.users.size,
+            });
+          }
+        }
+      }
+    });
+
     // ---- Typing indicator --------------------------------------------------
     socket.on('chat:typing', async (payload: { conversationId?: string; isTyping?: boolean } | string) => {
       const conversationId =

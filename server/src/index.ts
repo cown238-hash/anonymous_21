@@ -11,10 +11,10 @@ const server = http.createServer(app);
 const io = createSocketServer(server);
 
 // Give in-flight requests time to finish before the process exits.
-server.keepAliveTimeout = 65_000;
-server.headersTimeout = 66_000;
-// Slowloris protection.
-server.requestTimeout = 30_000;
+server.keepAliveTimeout = 300_000;
+server.headersTimeout = 310_000;
+// Allow large file uploads (up to MAX_UPLOAD_MB) without premature 408 timeout.
+server.requestTimeout = 300_000;
 
 let shuttingDown = false;
 

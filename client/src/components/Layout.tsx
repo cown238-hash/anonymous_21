@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { AIChat } from './AIChat';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   Bell,
+  Clock,
+  Info,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -26,6 +29,7 @@ import { useSocketEvents } from '../lib/realtime';
 import { Avatar } from './ui';
 import { BrandLogo, BRAND_MARK_SRC } from './Logo';
 import { motion, pageFade } from './anim';
+import { initSound, unlockAudioOnInteraction } from '../lib/sound';
 
 type IconComponent = React.ComponentType<{ size?: number | string; className?: string }>;
 
@@ -64,7 +68,15 @@ const NAV: NavItem[] = [
   { to: '/chat', label: 'แชท', icon: MessageSquare, auth: true, badge: 'messages' },
   { to: '/bookmarks', label: 'บันทึกไว้', icon: BookmarksIcon, auth: true },
   { to: '/notifications', label: 'การแจ้งเตือน', icon: Bell, auth: true, badge: 'notifications' },
+  { to: '/about', label: 'เกี่ยวกับเรา', icon: Info },
   { to: '/admin', label: 'ผู้ดูแล', icon: Shield, admin: true },
+];
+
+const THEME_OPTIONS: Array<{ value: 'light' | 'dark' | 'auto' | 'cycle'; label: string; icon: ReactNode; desc: string }> = [
+  { value: 'light', label: 'สว่าง', icon: <Moon size={16} />, desc: 'ธีมสว่างตลอดเวลา' },
+  { value: 'dark', label: 'มืด', icon: <Sun size={16} />, desc: 'ธีมมืดตลอดเวลา' },
+  { value: 'auto', label: 'ตามระบบ', icon: <Sun size={16} />, desc: 'ปรับตามการตั้งค่าของอุปกรณ์' },
+  { value: 'cycle', label: 'สลับอัตโนมัติ', icon: <Clock size={16} />, desc: 'เปลี่ยนสีทุก 30 วินาที' },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -73,13 +85,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
+  const [theme, setTheme] = useState<'light' | 'dark' | 'auto' | 'cycle'>(() => {
+    const saved = localStorage.getItem('nimbus.theme') as 'light' | 'dark' | 'auto' | 'cycle' | null;
+    return saved ?? 'auto';
+  });
+  const cycleRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [queryOpen, setQueryOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const themeMenuRef = useRef<HTMLDivElement>(null);
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
 
   const { data: myStats } = useQuery({
     queryKey: ['stats', 'me'],
@@ -94,15 +112,54 @@ export function Layout({ children }: { children: React.ReactNode }) {
     setMenuOpen(false);
     setProfileOpen(false);
     setQueryOpen(false);
+    setThemeMenuOpen(false);
     // A new route starts at the top — the fade below would otherwise land
     // mid-page when arriving from a long scroll.
     window.scrollTo({ top: 0 });
   }, [location.pathname]);
 
+  // --- ระบบสลับสีเว็บ (ธีมสว่าง / มืด / ตามระบบ / สลับอัตโนมัติ) ---
+  const isDark = () => {
+    if (theme === 'dark') return true;
+    if (theme === 'light') return false;
+    if (theme === 'auto') return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    // cycle: สลับอัตโนมัติทุก 30 นาทีตามเวลาปัจจุบัน (คำนวณจากนาทีของวัน)
+    if (theme === 'cycle') {
+      const now = new Date();
+      const minutes = now.getHours() * 60 + now.getMinutes();
+      return minutes % 60 < 30; // 30 นาทีแรกของทุกชั่วโมง = มืด, 30 นาทีหลัง = สว่าง
+    }
+    return false;
+  };
+
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', dark);
-    localStorage.setItem('nimbus.theme', dark ? 'dark' : 'light');
-  }, [dark]);
+    const html = document.documentElement;
+    html.classList.toggle('dark', isDark());
+    localStorage.setItem('nimbus.theme', theme);
+
+    // อัตโนมัติ: ตามระบบ (prefers-color-scheme)
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => {
+      if (theme === 'auto') html.classList.toggle('dark', media.matches);
+    };
+    media.addEventListener('change', handleChange);
+
+    // อัตโนมัติ: สลับสีทุก 30 วินาที (cycle) — ปรับเร็วขึ้นเพื่อเห็นผลชัดเจน
+    if (theme === 'cycle') {
+      if (cycleRef.current) clearInterval(cycleRef.current);
+      cycleRef.current = setInterval(() => {
+        html.classList.toggle('dark', isDark());
+      }, 30_000);
+    } else {
+      if (cycleRef.current) clearInterval(cycleRef.current);
+      cycleRef.current = null;
+    }
+
+    return () => {
+      media.removeEventListener('change', handleChange);
+      if (cycleRef.current) clearInterval(cycleRef.current);
+    };
+  }, [theme]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -114,10 +171,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         setQueryOpen(false);
         setProfileOpen(false);
         setMenuOpen(false);
+        setThemeMenuOpen(false);
       }
     };
     const onClick = (e: MouseEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
+      if (themeMenuRef.current && !themeMenuRef.current.contains(e.target as Node)) setThemeMenuOpen(false);
     };
     window.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onClick);
@@ -130,6 +189,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (queryOpen) searchRef.current?.focus();
   }, [queryOpen]);
+
+  // ปลดล็อกเสียงเมื่อผู้ใช้คลิกครั้งแรก (เบราว์เซอร์บล็อกเสียงอัตโนมัติ)
+  useEffect(() => {
+    initSound();
+    const onFirstClick = () => {
+      unlockAudioOnInteraction();
+      document.removeEventListener('click', onFirstClick);
+    };
+    document.addEventListener('click', onFirstClick, { once: true });
+    return () => {
+      document.removeEventListener('click', onFirstClick);
+    };
+  }, []);
 
   const unreadNotifications = (myStats?.unreadNotifications ?? 0) + notifications;
   const unreadMessages = myStats?.unreadMessages ?? 0;
@@ -198,15 +270,62 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </form>
 
           <div className="ml-auto flex items-center gap-1 md:ml-0">
-            <button
-              type="button"
-              className="btn-ghost"
-              onClick={() => setDark((v) => !v)}
-              aria-label="สลับธีม"
-              title={dark ? 'โหมดสว่าง' : 'โหมดมืด'}
-            >
-              {dark ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
+            <div className="relative" ref={themeMenuRef}>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => setThemeMenuOpen((v) => !v)}
+                aria-label="เลือกธีมสี"
+                title="ธีมสีเว็บไซต์"
+              >
+                {theme === 'auto' ? (
+                  <Sun size={18} className="animate-pulse" />
+                ) : theme === 'dark' ? (
+                  <Sun size={18} />
+                ) : theme === 'cycle' ? (
+                  <Clock size={18} className="text-brand-400 animate-spin" />
+                ) : (
+                  <Moon size={18} />
+                )}
+              </button>
+
+              {themeMenuOpen && (
+                <div
+                  ref={themeMenuRef}
+                  role="menu"
+                  className="card animate-pop absolute right-0 mt-2 w-64 overflow-hidden border-ink-500/15 p-1.5 z-50"
+                >
+                  {THEME_OPTIONS.map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setTheme(item.value);
+                        setThemeMenuOpen(false);
+                      }}
+                      className={clsx(
+                        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition',
+                        theme === item.value
+                          ? 'bg-brand-500/10 text-brand-400 font-semibold'
+                          : 'text-ink-500 hover:bg-surface-2 hover:text-ink-900',
+                      )}
+                    >
+                      {item.icon}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">{item.label}</span>
+                          {theme === item.value && (
+                            <span className="text-[10px] font-medium text-brand-400 bg-brand-500/10 px-1.5 py-0.5 rounded">ใช้งานอยู่</span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-ink-400">{item.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <button
               type="button"
@@ -378,7 +497,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <dl className="mt-3 space-y-2 text-xs">
                   <div className="flex items-center justify-between">
                     <dt className="text-ink-500">ธีม</dt>
-                    <dd className="text-ink-900">{dark ? 'มืด' : 'สว่าง'}</dd>
+                    <dd className="text-ink-900">{isDark() ? 'มืด' : 'สว่าง'}</dd>
                   </div>
                   <div className="flex items-center justify-between">
                     <dt className="text-ink-500">แจ้งเตือน</dt>
@@ -441,6 +560,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           );
         })}
       </nav>
+
+      {/* ------------- AI Chat Widget ------------- */}
+      <AIChat />
     </div>
   );
 }

@@ -25,6 +25,8 @@ import { PostCard, HeartIcon } from '../components/PostCard';
 import { CommentSection } from '../components/CommentSection';
 import { AttachmentList } from '../components/Attachments';
 import { ReportButton } from '../components/ReportButton';
+import { ContentWarning } from '../components/ContentWarning';
+import { MediaPlayer } from '../components/MediaPlayer';
 import type { Paginated, Post } from '../types';
 
 interface PostDetailResponse {
@@ -39,6 +41,7 @@ export function PostDetailPage() {
   const queryClient = useQueryClient();
   const { connected } = useSocketEvents();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [contentWarningAccepted, setContentWarningAccepted] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['post', slug],
@@ -136,6 +139,16 @@ export function PostDetailPage() {
   }
 
   const canManage = user && (user.id === post.author.id || isAdmin);
+
+  if (!contentWarningAccepted) {
+    return (
+      <ContentWarning onAccept={() => setContentWarningAccepted(true)}>
+        <div className="pt-8 text-center">
+          <p className="text-ink-500 text-sm">ยืนยันอายุเพื่อดูเนื้อหาบทความนี้</p>
+        </div>
+      </ContentWarning>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -244,6 +257,11 @@ export function PostDetailPage() {
           {post.attachments.length > 0 && (
             <div className="mt-8">
               <AttachmentList attachments={post.attachments} />
+              {post.attachments
+                .filter((a) => a.mimeType.startsWith('video/') || a.mimeType.startsWith('audio/'))
+                .map((a) => (
+                  <MediaPlayer key={a.id} attachment={a} postSlug={post.slug} />
+                ))}
             </div>
           )}
 

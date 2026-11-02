@@ -1,9 +1,9 @@
 import { useEffect, useId, useState } from 'react';
 
 /** Wide wordmark — og:image and the sign-in / account pages. */
-export const BRAND_LOGO_SRC = '/logo/wksl-wordmark.png';
+export const BRAND_LOGO_SRC = '/logo/wksl-wordmark.svg';
 /** Square monogram — stays legible in the 32px header chip. */
-export const BRAND_MARK_SRC = '/logo/wksl-mark.png';
+export const BRAND_MARK_SRC = '/logo/wksl-mark.svg';
 export const BRAND_NAME = 'WKSL';
 
 /**

@@ -18,19 +18,19 @@
   --color-ink-500: #9a9a9a;
   --color-ink-400: #6e6e6e;
 
-  /* Accent — one green ramp. 500 is the primary action colour. */
-  --color-brand-50: #ecfdf5;
-  --color-brand-200: #a7f3d0;
-  --color-brand-300: #6ee7b7;
-  --color-brand-400: #34d399;
-  --color-brand-500: #10b981;
-  --color-brand-600: #059669;
-  --color-brand-700: #047857;
+  /* Accent — one red ramp. 500 is the primary action colour. */
+  --color-brand-50: #fef2f2;
+  --color-brand-200: #fecaca;
+  --color-brand-300: #fca5a5;
+  --color-brand-400: #f87171;
+  --color-brand-500: #ef4444;
+  --color-brand-600: #dc2626;
+  --color-brand-700: #b91c1c;
 
-  /* Second accent for gradients only — a cooler mint. */
-  --color-accent-300: #5eead4;
-  --color-accent-400: #2dd4bf;
-  --color-accent-500: #14b8a6;
+  /* Second accent for gradients only — a softer rose. */
+  --color-accent-300: #fda4af;
+  --color-accent-400: #fb7185;
+  --color-accent-500: #f43f5e;
 
   /* Semantic */
   --color-danger: #f43f5e;
@@ -65,9 +65,9 @@
     --color-ink-500: #52525b;
     --color-ink-400: #7c7c85;
 
-    /* Slightly deeper green on light so contrast holds up. */
-    --color-brand-500: #059669;
-    --color-brand-600: #047857;
+    /* Slightly deeper red on light so contrast holds up. */
+    --color-brand-500: #dc2626;
+    --color-brand-600: #b91c1c;
   }
 
   html,
@@ -530,6 +530,39 @@
   /* Neon text link used on hover states. */
   .glow-text {
     text-shadow: 0 0 18px color-mix(in oklab, var(--color-brand-400) 55%, transparent);
+  }
+
+  /* Marquee — ข้อความเลื่อนซ้ายไปขวาไม่หยุด */
+  .marquee-track {
+    display: inline-flex;
+    will-change: transform;
+  }
+  .marquee-content {
+    display: inline-flex;
+    gap: 1.5rem;
+    white-space: nowrap;
+    animation-name: marquee;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    animation-duration: var(--marquee-duration, 20s);
+  }
+  html[data-motion='off'] .marquee-content,
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-content {
+      animation: none;
+    }
+  }
+  .animate-none {
+    animation: none !important;
+  }
+
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

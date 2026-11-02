@@ -21,6 +21,13 @@ export type ServerToClientEvents = {
   'presence:left': (payload: unknown) => void;
   'notification:new': (payload: unknown) => void;
   'user:updated': (payload: unknown) => void;
+  'watch:state': (payload: WatchStateEvent) => void;
+  'watch:joined': (payload: WatchJoinedEvent) => void;
+  'watch:left': (payload: WatchLeftEvent) => void;
+  'watch:played': (payload: WatchPlayedEvent) => void;
+  'watch:paused': (payload: WatchPausedEvent) => void;
+  'watch:seeked': (payload: WatchSeekedEvent) => void;
+  'watch:changed': (payload: WatchChangedEvent) => void;
   connect_error: (err: Error) => void;
 };
 
@@ -30,7 +37,71 @@ export type ClientToServerEvents = {
   'chat:send': (payload: { conversationId: string; content: string }) => void;
   'chat:typing': (payload: { conversationId: string; isTyping: boolean }) => void;
   'chat:read': (payload: { conversationId: string }) => void;
+  'watch:join': (payload: { roomId: string; mediaUrl?: string; mediaType?: 'video' | 'audio' | 'image' }) => void;
+  'watch:leave': (payload: { roomId?: string }) => void;
+  'watch:play': (payload: { roomId?: string; currentTime?: number }) => void;
+  'watch:pause': (payload: { roomId?: string; currentTime?: number }) => void;
+  'watch:seek': (payload: { roomId?: string; currentTime?: number }) => void;
+  'watch:change': (payload: { roomId?: string; mediaUrl?: string; mediaType?: 'video' | 'audio' | 'image' }) => void;
 };
+
+export interface WatchStateEvent {
+  roomId: string;
+  mediaUrl: string;
+  mediaType: 'video' | 'audio' | 'image';
+  currentTime: number;
+  isPlaying: boolean;
+  updatedAt: number;
+  hostId: string;
+  userCount: number;
+}
+
+export interface WatchJoinedEvent {
+  roomId: string;
+  user: { id: string; displayName: string; avatarUrl: string | null };
+  userCount: number;
+}
+
+export interface WatchLeftEvent {
+  roomId: string;
+  userId: string;
+  userCount: number;
+}
+
+export interface WatchPlayedEvent {
+  roomId: string;
+  currentTime: number;
+  isPlaying: boolean;
+  updatedAt: number;
+  by: string;
+}
+
+export interface WatchPausedEvent {
+  roomId: string;
+  currentTime: number;
+  isPlaying: boolean;
+  updatedAt: number;
+  by: string;
+}
+
+export interface WatchSeekedEvent {
+  roomId: string;
+  currentTime: number;
+  isPlaying: boolean;
+  updatedAt: number;
+  by: string;
+}
+
+export interface WatchChangedEvent {
+  roomId: string;
+  mediaUrl: string;
+  mediaType: 'video' | 'audio' | 'image';
+  currentTime: number;
+  isPlaying: boolean;
+  updatedAt: number;
+  hostId: string;
+  by: string;
+}
 
 export interface MessageEvent {
   id: string;

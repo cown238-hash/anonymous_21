@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { api, qs } from '../lib/api';
 import { CountUp, RiseIn, motion, riseChild, staggerParent } from '../components/anim';
+import { Marquee } from '../components/Marquee';
 import { useAuth } from '../lib/auth';
 import { useSocketEvents } from '../lib/realtime';
 import { useDebounced } from '../lib/hooks';
@@ -294,6 +295,29 @@ export function HomePage() {
           </motion.div>
         </section>
       )}
+
+      {/* -------- Marquee ticker -------- */}
+      <Marquee
+        speed={35}
+        className="border-y border-ink-500/10 bg-surface-1 py-3"
+      >
+        <span className="text-ink-400 font-mono text-sm">📢</span>
+        <span className="text-ink-300 font-medium">บทความใหม่</span>
+        <span className="px-2 text-ink-500">•</span>
+        <span className="text-brand-400 font-medium">TypeScript ให้ปลอดภัยและอ่านง่าย</span>
+        <span className="px-2 text-ink-500">•</span>
+        <span className="text-ink-300 font-medium">เร่งความเร็ว PostgreSQL ด้วย Index ที่ถูกจุด</span>
+        <span className="px-2 text-ink-500">•</span>
+        <span className="text-brand-400 font-medium">เริ่มต้น Docker Compose สำหรับโปรเจกต์ขนาดกลาง</span>
+        <span className="px-2 text-ink-500">•</span>
+        <span className="text-ink-300 font-medium">ออกแบบ REST API ที่ปลอดภัยและขยายได้</span>
+        <span className="px-2 text-ink-500">•</span>
+        <span className="text-brand-400 font-medium">จัดการไฟล์แนบอย่างปลอดภัยในเว็บแอป</span>
+        <span className="px-2 text-ink-500">•</span>
+        <span className="text-ink-300 font-medium">ทดสอบเว็บแอปอย่างมีประสิทธิภาพสำหรับทีมเล็ก</span>
+        <span className="px-2 text-ink-500">•</span>
+        <span className="text-brand-400 font-medium">WKSL — แชร์ความรู้ สร้างสิ่งที่ดี</span>
+      </Marquee>
 
       {/* -------- Toolbar -------- */}
       <div className="card p-4">

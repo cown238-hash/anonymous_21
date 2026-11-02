@@ -5,6 +5,7 @@ import { MotionConfig } from 'framer-motion';
 import { useAuth } from './lib/auth';
 import { toReducedMotion, useMotionPref } from './lib/motion-pref';
 import { Layout } from './components/Layout';
+import { AgeGate } from './components/AgeGate';
 import { SpinnerPage } from './components/ui';
 import { analytics } from './lib/telemetry';
 import { useSeo } from './lib/seo';
@@ -17,6 +18,7 @@ import {
 } from './pages/AccountPages';
 import { HomePage } from './pages/HomePage';
 import { ExplorePage } from './pages/ExplorePage';
+import AboutPage from './pages/AboutPage';
 import { MembersPage } from './pages/MembersPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { PostDetailPage } from './pages/PostDetailPage';
@@ -27,6 +29,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { BookmarksPage } from './pages/BookmarksPage';
 import { AdminPage } from './pages/AdminPage';
+import WatchPage from './pages/WatchPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 function FullScreenLoader() {
@@ -97,12 +100,19 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
 
+        {/* Reachable while signed in or out — public pages inside Layout, age-gated. */}
+        <Route element={<AgeGate><Layout> <Outlet /> </Layout></AgeGate>}>
+          <Route path="/about" element={<AboutPage />} />
+        </Route>
+
         <Route
           element={
             <RequireAuth>
-              <Layout>
-                <Outlet />
-              </Layout>
+              <AgeGate>
+                <Layout>
+                  <Outlet />
+                </Layout>
+              </AgeGate>
             </RequireAuth>
           }
         >
@@ -121,6 +131,7 @@ export default function App() {
 
           <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
 
+          <Route path="/watch/:roomId" element={<WatchPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
