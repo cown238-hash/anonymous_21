@@ -84,15 +84,13 @@ export default function App() {
     <MotionConfig reducedMotion={toReducedMotion(motionPref)}>
       <RouteAnalytics />
       <Routes>
-        <Route
-          element={
-            <RedirectIfAuthed>
-              <Outlet />
-            </RedirectIfAuthed>
-          }
-        >
-          <Route path="/login" element={<LoginPage />} />
+        <Route element={<RedirectIfAuthed><Outlet /></RedirectIfAuthed>}>
           <Route path="/register" element={<RegisterPage />} />
+        </Route>
+
+        {/* Age gate only on the login page */}
+        <Route element={<RedirectIfAuthed><AgeGate><Outlet /></AgeGate></RedirectIfAuthed>}>
+          <Route path="/login" element={<LoginPage />} />
         </Route>
 
         {/* Reachable while signed out. */}
@@ -100,19 +98,17 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />
 
-        {/* Reachable while signed in or out — public pages inside Layout, age-gated. */}
-        <Route element={<AgeGate><Layout> <Outlet /> </Layout></AgeGate>}>
+        {/* Reachable while signed in or out — public pages inside Layout. */}
+        <Route element={<Layout> <Outlet /> </Layout>}>
           <Route path="/about" element={<AboutPage />} />
         </Route>
 
         <Route
           element={
             <RequireAuth>
-              <AgeGate>
-                <Layout>
-                  <Outlet />
-                </Layout>
-              </AgeGate>
+              <Layout>
+                <Outlet />
+              </Layout>
             </RequireAuth>
           }
         >
