@@ -407,3 +407,11 @@ model PushSubscription {
 
   @@index([userId])
 }
+
+/// ตั้งค่าระบบที่แอดมินแก้ไขได้ เช่น เปิดปิด Age Gate
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}

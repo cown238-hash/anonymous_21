@@ -100,6 +100,25 @@ function OverviewTab({ stats, loading }: { stats?: AdminStats; loading: boolean 
   if (loading) return <SkeletonList count={2} />;
   if (!stats) return <Alert>ไม่สามารถโหลดสถิติได้</Alert>;
 
+  const queryClient = useQueryClient();
+  const { data: ageGate } = useQuery<{ enabled: boolean }>({
+    queryKey: ['admin', 'settings', 'age-gate'],
+    queryFn: () => api.get<{ enabled: boolean }>('/admin/settings/age-gate'),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (enabled: boolean) =>
+      api.patch<{ enabled: boolean }>('/admin/settings/age-gate', { enabled }),
+    onSuccess: (_data, enabled) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'settings', 'age-gate'] });
+      toast.success(
+        enabled
+          ? 'เปิดใช้งานระบบยืนยันอายุแล้ว'
+          : 'ปิดใช้งานระบบยืนยันอายุแล้ว',
+      );
+    },
+  });
+
   const cards = [
     { label: 'ผู้ใช้ทั้งหมด', value: stats.totals.users, hint: `+${stats.recent.users7d} ใน 7 วัน`, icon: UsersIcon },
     { label: 'บทความ', value: stats.totals.posts, hint: `+${stats.recent.posts7d} ใน 7 วัน`, icon: FileText },
@@ -124,6 +143,36 @@ function OverviewTab({ stats, loading }: { stats?: AdminStats; loading: boolean 
             <p className="text-[11px] text-ink-400">{c.hint}</p>
           </div>
         ))}
+      </div>
+
+      <div className="card p-5 mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Shield size={18} className="text-brand-400" />
+            <span className="font-semibold text-ink-900">ระบบยืนยันอายุ (Age Gate)</span>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              toggleMutation.mutate(!(ageGate?.enabled ?? false))
+            }
+            disabled={toggleMutation.isPending}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full p-1 transition-colors focus:outline-none ${
+              ageGate?.enabled ? 'bg-brand-500' : 'bg-ink-500/20'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                ageGate?.enabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+        <p className="text-xs text-ink-500">
+          {ageGate?.enabled
+            ? 'เปิดอยู่ — ผู้เข้าชมต้องยืนยันอายุ 18 ปีก่อนอ่านเนื้อหา'
+            : 'ปิดอยู่ — ทุกคนเข้าถึงเนื้อหาได้ทันที'}
+        </p>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">

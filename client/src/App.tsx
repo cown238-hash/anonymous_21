@@ -5,7 +5,7 @@ import { MotionConfig } from 'framer-motion';
 import { useAuth } from './lib/auth';
 import { toReducedMotion, useMotionPref } from './lib/motion-pref';
 import { Layout } from './components/Layout';
-import { AgeGate } from './components/AgeGate';
+
 import { SpinnerPage } from './components/ui';
 import { analytics } from './lib/telemetry';
 import { useSeo } from './lib/seo';
@@ -88,8 +88,7 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
         </Route>
 
-        {/* Age gate only on the login page */}
-        <Route element={<RedirectIfAuthed><AgeGate><Outlet /></AgeGate></RedirectIfAuthed>}>
+        <Route element={<RedirectIfAuthed><Outlet /></RedirectIfAuthed>}>
           <Route path="/login" element={<LoginPage />} />
         </Route>
 

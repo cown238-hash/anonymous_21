@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { env } from '../config/env.js';
 import { HttpError } from '../lib/http-error.js';
+import { prisma } from '../lib/prisma.js';
 import { resolveAgeCheck } from '../services/age-gate.js';
 
 /** Code the client keys off to decide between "answer the gate" and "error". */
@@ -15,11 +16,14 @@ export const AGE_REQUIRED_CODE = 'AGE_VERIFICATION_REQUIRED';
  * legitimate adult could never get far enough to answer the gate, and crawlers
  * would see a 403 on every URL.
  *
- * A no-op unless `AGE_GATE_ENABLED=true`, so development and the test suite are
- * unaffected by default.
+ * Reads the enabled flag from the `SystemSetting` table first (so admins can
+ * toggle it without restarting), falling back to `AGE_GATE_ENABLED` env var
+ * when no row exists yet.
  */
 export async function requireAgeGate(req: Request, res: Response, next: NextFunction) {
-  if (!env.AGE_GATE_ENABLED) return next();
+  const setting = await prisma.systemSetting.findUnique({ where: { key: 'age_gate_enabled' } });
+  const enabled = setting ? setting.value === 'true' : env.AGE_GATE_ENABLED;
+  if (!enabled) return next();
 
   try {
     const status = await resolveAgeCheck(req, res);

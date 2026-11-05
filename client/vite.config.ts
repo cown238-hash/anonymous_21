@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 
-const API_TARGET = process.env.VITE_API_TARGET ?? 'http://localhost:4000';
+const API_TARGET = process.env.VITE_API_TARGET ?? 'http://localhost:4001';
 
 // Injected into the bundle so client error reports carry a build identifier.
 const pkg = JSON.parse(readFileSync(path.resolve(process.cwd(), '../package.json'), 'utf8')) as {
