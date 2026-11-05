@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
-import { AgeGate } from './components/AgeGate';
 import { AuthProvider } from './lib/auth';
 import { RealtimeProvider } from './lib/realtime';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -41,15 +40,11 @@ createRoot(container).render(
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          {/* Outside AuthProvider on purpose: an unverified visitor should not
-              reach the session endpoint or the realtime socket at all. */}
-          <AgeGate>
-            <AuthProvider>
-              <RealtimeProvider>
-                <App />
-              </RealtimeProvider>
-            </AuthProvider>
-          </AgeGate>
+          <AuthProvider>
+            <RealtimeProvider>
+              <App />
+            </RealtimeProvider>
+          </AuthProvider>
           <ToastHost />
         </BrowserRouter>
       </QueryClientProvider>
