@@ -301,22 +301,24 @@ export function HomePage() {
         speed={35}
         className="border-y border-ink-500/10 bg-surface-1 py-3"
       >
-        <span className="text-ink-400 font-mono text-sm">📢</span>
-        <span className="text-ink-300 font-medium">บทความใหม่</span>
-        <span className="px-2 text-ink-500">•</span>
-        <span className="text-brand-400 font-medium">TypeScript ให้ปลอดภัยและอ่านง่าย</span>
-        <span className="px-2 text-ink-500">•</span>
-        <span className="text-ink-300 font-medium">เร่งความเร็ว PostgreSQL ด้วย Index ที่ถูกจุด</span>
-        <span className="px-2 text-ink-500">•</span>
-        <span className="text-brand-400 font-medium">เริ่มต้น Docker Compose สำหรับโปรเจกต์ขนาดกลาง</span>
-        <span className="px-2 text-ink-500">•</span>
-        <span className="text-ink-300 font-medium">ออกแบบ REST API ที่ปลอดภัยและขยายได้</span>
-        <span className="px-2 text-ink-500">•</span>
-        <span className="text-brand-400 font-medium">จัดการไฟล์แนบอย่างปลอดภัยในเว็บแอป</span>
-        <span className="px-2 text-ink-500">•</span>
-        <span className="text-ink-300 font-medium">ทดสอบเว็บแอปอย่างมีประสิทธิภาพสำหรับทีมเล็ก</span>
-        <span className="px-2 text-ink-500">•</span>
-        <span className="text-brand-400 font-medium">WKSL — แชร์ความรู้ สร้างสิ่งที่ดี</span>
+        <span className="inline-flex items-center font-mono text-sm leading-7 text-ink-400">
+          <span className="text-ink-400">📢</span>
+          <span className="text-ink-300">บทความใหม่</span>
+          <span className="px-2 text-ink-500">•</span>
+          <span className="text-brand-400">TypeScript ให้ปลอดภัยและอ่านง่าย</span>
+          <span className="px-2 text-ink-500">•</span>
+          <span className="text-ink-300">เร่งความเร็ว PostgreSQL ด้วย Index ที่ถูกจุด</span>
+          <span className="px-2 text-ink-500">•</span>
+          <span className="text-brand-400">เริ่มต้น Docker Compose สำหรับโปรเจกต์ขนาดกลาง</span>
+          <span className="px-2 text-ink-500">•</span>
+          <span className="text-ink-300">ออกแบบ REST API ที่ปลอดภัยและขยายได้</span>
+          <span className="px-2 text-ink-500">•</span>
+          <span className="text-brand-400">จัดการไฟล์แนบอย่างปลอดภัยในเว็บแอป</span>
+          <span className="px-2 text-ink-500">•</span>
+          <span className="text-ink-300">ทดสอบเว็บแอปอย่างมีประสิทธิภาพสำหรับทีมเล็ก</span>
+          <span className="px-2 text-ink-500">•</span>
+          <span className="text-brand-400">WKSL — แชร์ความรู้ สร้างสิ่งที่ดี</span>
+        </span>
       </Marquee>
 
       {/* -------- Toolbar -------- */}
