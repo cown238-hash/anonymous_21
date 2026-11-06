@@ -33,7 +33,6 @@ export class ApiError extends Error {
 // --- access token lives in memory only (never localStorage) ----------------
 let accessToken: string | null = null;
 let onUnauthorized: (() => void) | null = null;
-let onAgeGateRequired: (() => void) | null = null;
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
@@ -45,17 +44,6 @@ export function getAccessToken(): string | null {
 
 export function setUnauthorizedHandler(fn: () => void): void {
   onUnauthorized = fn;
-}
-
-/**
- * Called when the API refuses a request because the age gate is not satisfied.
- *
- * The server owns the verdict, so it can lapse mid-session — the confirmation
- * expires, an operator clears it, the minimum age is raised. Without this the
- * tab would keep showing a shell whose every request fails until a reload.
- */
-export function setAgeGateHandler(fn: () => void): void {
-  onAgeGateRequired = fn;
 }
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
@@ -126,7 +114,6 @@ async function parse<T>(res: Response): Promise<T> {
     }
 
     const error = envelope?.error;
-    if (error?.code === 'AGE_VERIFICATION_REQUIRED') onAgeGateRequired?.();
     throw new ApiError(res.status, error?.message ?? `เกิดข้อผิดพลาด (${res.status})`, error?.code, error?.details);
   }
   return envelope.data;

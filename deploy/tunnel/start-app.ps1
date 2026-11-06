@@ -3,7 +3,7 @@
 # the Startup folder runs at logon) — see deploy/tunnel/README.md.
 #
 # ENV_FILE points at the repo-root .env: that is the production file (public
-# URL, secrets, limits, age gate). DATABASE_URL is deliberately *not* in it —
+# URL, secrets, limits). DATABASE_URL is deliberately *not* in it —
 # docker-compose injects it there — so it is lifted from server/.env, which
 # describes the local Postgres this machine runs as a service.
 

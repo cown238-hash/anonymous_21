@@ -25,12 +25,6 @@ async function pruneExpiredTokens() {
   return { resetTokens: reset.count, verificationTokens: verification.count };
 }
 
-/** Age confirmations expire; the rows behind them are not worth keeping. */
-async function pruneExpiredAgeChecks() {
-  const { count } = await prisma.ageCheck.deleteMany({ where: { expiresAt: { lt: new Date() } } });
-  return { ageChecks: count };
-}
-
 async function pruneReadNotifications() {
   const cutoff = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
   const { count } = await prisma.notification.deleteMany({
@@ -111,7 +105,6 @@ export async function runJobs(): Promise<Record<string, unknown>> {
   const tasks: Array<[string, () => Promise<Record<string, unknown>>]> = [
     ['sessions', pruneExpiredSessions],
     ['tokens', pruneExpiredTokens],
-    ['ageChecks', pruneExpiredAgeChecks],
     ['notifications', pruneReadNotifications],
     ['accounts', unlockExpiredAccounts],
     ['uploads', pruneOrphanUploads],

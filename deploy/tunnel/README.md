@@ -84,8 +84,8 @@ Windows เรียก `start-all.ps1` ผ่านไฟล์ `WKSL.vbs` ท�
 | root `.env` | **`TRUST_PROXY=true` + `TRUST_PROXY_HOPS=1`** |
 
 `TRUST_PROXY_HOPS=1` เพราะ cloudflared เป็น proxy เดียวที่แอปมองเห็น — ถ้าปิด
-`TRUST_PROXY` หรือตั้ง hops ผิด ทุกคนจะถูกมองเป็น `127.0.0.1` ซึ่งทำให้
-**ผลยืนยันอายุของคนหนึ่งกลายเป็นของทุกคน** และ rate limit รวมกันเป็น bucket เดียว
+`TRUST_PROXY` หรือตั้ง hops ผิด ทุกคนจะถูกมองเป็น `127.0.0.1` และ rate limit
+จะรวมกันเป็น bucket เดียว
 
 ตรวจว่าได้จริง: ขอ `https://app.wksl.site/api/health` แล้วดู log ของแอป
 (`ip=` ต้องเป็น IP สาธารณะของคุณ ไม่ใช่ `127.0.0.1`)

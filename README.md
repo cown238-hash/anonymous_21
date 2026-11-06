@@ -81,14 +81,9 @@
 - หน้า `offline.html` เมื่ออินเทอร์เน็ตหลุด
 - ธีมสว่าง/มืดไม่กะพริบตอนโหลด, responsive ทั้งมือถือและเดสก์ท็อป
 
-### การยืนยันอายุ (Age gate)
-- **ครอบทั้งเว็บ** — `components/AgeGate.tsx` ครอบแอปทั้งก้อน (วางไว้นอก `AuthProvider` ด้วย) จึงไม่มีเส้นทางใดหลุดไปถึงแอปได้ก่อนยืนยัน ผู้ใช้เลือกวัน เดือน ปีเกิดเป็น พ.ศ. แล้วระบบแปลงเป็น ค.ศ. ให้
-- **เซิร์ฟเวอร์เป็นผู้ตัดสิน** — `POST /api/age-gate` ตรวจว่าเป็นวันที่จริง (ไม่ใช่ `2025-02-30`) ไม่เป็นอนาคต และคำนวณอายุเอง ฝั่งเบราว์เซอร์ทำได้แค่ส่งคำตอบ — เปิด devtools แก้ localStorage ไม่ช่วยอะไร
-- **ไม่เก็บวันเกิด** — ตาราง `AgeCheck` เก็บเฉพาะผลลัพธ์: `minAge`, วันหมดอายุ และ **hash ของ IP ที่ย้อนกลับไม่ได้** ส่วนคำตอบที่อายุไม่ถึง **ไม่ถูกบันทึกเลย** ปีที่พิมพ์ผิดจึงแก้แล้วลองใหม่ได้ทันที
-- **กันเฉพาะเส้นทางเนื้อหา ไม่ได้กันทั้ง API** — `/api/posts`, `/api/comments`, `/api/users`, `/api/categories`, `/api/tags`, `/api/stats` จะตอบ `403 AGE_VERIFICATION_REQUIRED` จนกว่าจะผ่าน แต่ `/api/auth`, `/api/health`, `/api/ready`, `/api/metrics`, `/api/collect`, `/api/age-gate`, `robots.txt` และ `sitemap.xml` เปิดเสมอ — ถ้าไม่แยกอย่างนี้ ผู้ใหญ่ที่ยังไม่ยืนยันจะเข้าไปตอบเกตไม่ได้เลย และ crawler จะเจอ 403 ทุกหน้า
-- **จำผู้ใช้ข้ามครั้ง** — cookie `httpOnly` อายุ 1 ปี; ล้างคุกกี้แล้วระบบยังจำได้จาก hash ของที่อยู่ IP — ปิดได้ด้วย `AGE_GATE_IP_BINDING=false` ข้อแลกเปลี่ยนคือคนที่แชร์ IP เดียวกัน (ออฟฟิศ/โรงเรียน) จะได้ผลร่วมกัน
-- **ปิดไว้โดยปริยาย** — เปิดด้วย `AGE_GATE_ENABLED=true` เท่านั้น จึงไม่กระทบ dev, e2e หรือ deployment เดิม ๆ ส่วน template สำหรับ production (`render.yaml`, `.env.docker.example`) เปิดให้แล้ว
-- **ทดสอบ** — `npm run test:agegate` ตรวจ 23 กรณี (ข้ามตัวเองถ้าเกตปิด) รวมเส้นแบ่งวันเกิด: เกิดพรุ่งนี้เมื่อ 18 ปีที่แล้ว = ไม่ผ่าน, เกิดวันนี้เมื่อ 18 ปีที่แล้ว = ผ่าน
+### สิทธิ์เข้าถึง
+- **เปิดให้ทุกคนโดยไม่ต้องยืนยันอะไรก่อน** — เนื้อหาทั้งเว็บอ่านได้ทันที ไม่มีหน้ากั้น
+- การยืนยันอายุ (Age gate) ถูกลบออกทั้งระบบแล้ว — ไม่มีทั้งฝั่ง client, server และฐานข้อมูล
 
 ### ดีไซน์ — ดำ + เขียว
 - **Dark-first** — พื้นหลังดำแท้ (`#050505`) เป็นค่าเริ่มต้น, สลับเป็นโหมดสว่างได้จากแถบบน
@@ -322,17 +317,11 @@ JWT_REFRESH_SECRET=...
 APP_ENCRYPTION_KEY=...
 SMTP_HOST=... SMTP_PORT=... SMTP_USER=... SMTP_PASS=...
 ENABLE_JOBS=true
-# ---- Age gate ----
-AGE_GATE_ENABLED=true
-AGE_GATE_MIN_AGE=18
-AGE_GATE_TTL_DAYS=365
-AGE_GATE_IP_BINDING=true
 ```
 
 - คุกกี้เปลี่ยนเป็น `secure: true` + `sameSite: none` อัตโนมัติเมื่อ `NODE_ENV=production`
 - ตั้ง `TRUST_PROXY=true` เมื่อรันหลัง nginx / load balancer เพื่อให้ rate limiter นับ IP จริง
-- ตั้ง `APP_ENCRYPTION_KEY` เพื่อเข้ารหัส TOTP shared secret (AES-256-GCM) — และใช้เป็นคีย์ HMAC ของ hash IP ในตาราง `AgeCheck` ด้วย
-- `AGE_GATE_ENABLED=true` เปิดเกตยืนยันอายุ (ปิดไว้เป็นค่าเริ่มต้น จึงไม่กระทบ deploy เดิม) ตาราง `AgeCheck` มากับ migration แล้ว — `npm run preflight` จะฟ้องถ้าเปิดเกตแต่ยังไม่ได้ migrate
+- ตั้ง `APP_ENCRYPTION_KEY` เพื่อเข้ารหัส TOTP shared secret (AES-256-GCM)
 
 ### ลงชื่อเข้าใช้ / สมัครด้วย Google (ไม่บังคับ)
 
@@ -400,10 +389,6 @@ BACKUP_S3_BUCKET=my-bucket ./scripts/backup.sh   # อัปโหลดขึ�
 | `TRUST_PROXY` | `false` | เปิดเมื่อรันหลัง reverse proxy |
 | `HSTS_INCLUDE_SUBDOMAINS` | `false` | ส่ง `includeSubDomains` + `preload` ใน HSTS — เปิดเฉพาะเมื่อแอปอยู่ที่ apex ของโดเมน (subdomain ถูก preload ไม่ได้) |
 | `ENABLE_JOBS` | `false` | รัน maintenance jobs ในตัวเซิร์ฟเวอร์ |
-| `AGE_GATE_ENABLED` | `false` | เปิดเกตยืนยันอายุ 18+ ก่อนเสิร์ฟเนื้อหา (`npm run test:agegate` ต้องเปิดถึงจะทดสอบจริง) |
-| `AGE_GATE_MIN_AGE` | `18` | อายุขั้นต่ำ (13–21) — เปลี่ยนแล้วผลยืนยันเดิมถือเป็นโมฆะ ทุกคนตอบใหม่ |
-| `AGE_GATE_TTL_DAYS` | `365` | ผลการยืนยันมีอายุกี่วันก่อนถามใหม่ |
-| `AGE_GATE_IP_BINDING` | `true` | จำผู้ใช้เดิมด้วย hash ของ IP — ตั้ง `false` เพื่อบังคับตอบใหม่ทุกเบราว์เซอร์ |
 | `ANALYTICS_ENDPOINT` | — | ถ้าไม่ตั้ง ระบบจะไม่ส่ง analytics เลย |
 | `ERROR_REPORT_ENDPOINT` | — | ถ้าไม่ตั้ง client error จะถูก log ไว้เท่านั้น |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | เปิดปุ่มสมัคร/เข้าสู่ระบบด้วย Google — เว้นว่าง = ปุ่มไม่แสดง |
@@ -483,7 +468,6 @@ BACKUP_S3_BUCKET=my-bucket ./scripts/backup.sh   # อัปโหลดขึ�
 | `GET /api/metrics` | Prometheus text exposition |
 | `GET /robots.txt` · `/sitemap.xml` · `/manifest.webmanifest` | SEO / PWA |
 | `POST /api/collect` · `/api/collect/client-errors` · `GET /api/collect/config` | analytics + error reporting |
-| `GET /api/age-gate` · `POST /api/age-gate` | เช็ค/ยืนยันอายุ — เส้นทางเนื้อหาทั้งหมดตอบ `403 AGE_VERIFICATION_REQUIRED` จนกว่าจะผ่าน |
 | `GET /api/posts` · `/api/posts/:idOrSlug` · `/api/posts/mine/list` | บทความ |
 | `GET /api/posts/:idOrSlug/attachments/:attachmentId` | ดาวน์โหลดไฟล์แนบ (`?download=1` บังคับดาวน์โหลดเสมอ) |
 | `GET /api/users` · `/api/users/:username` · `/api/users/:username/posts` · `/api/users/online` | สมาชิก |
@@ -573,7 +557,6 @@ npm run test:upload      --workspace server
 npm run test:attachment  --workspace server   # อัปโหลด/แนบ/ดาวน์โหลด/สิทธิ์
 npm run test:privacy     --workspace server   # ซ่อนโปรไฟล์/รายชื่อ/โปรไฟล์/สิทธิ์แอดมิน
 npm run test:account     --workspace server
-npm run test:agegate     --workspace server   # เส้นทางที่ถูกกัน, เส้นแบ่งวันเกิด, การไม่เก็บวันเกิด
 ```
 
 > **หมายเหตุ** — `test:totp` จับนาฬิกาของ `otplib` ไว้ที่เวลาคงที่ จึงไม่ต้องรอข้ามขอบ 30 วินาทีจริง และไม่ต้องเปิดเซิร์ฟเวอร์
@@ -581,9 +564,6 @@ npm run test:agegate     --workspace server   # เส้นทางที่�
 > **หมายเหตุ `test:e2e`** — สคริปต์ชุดนี้ล็อกอินด้วยบัญชี demo ที่ `npm run db:seed` สร้าง (`admin@nimbus.dev` / `Admin@1234`)
 > ถ้าล้างบัญชี demo ออกไปแล้ว (เช่นรัน `npm run purge:content`) ต้อง seed บน**ฐานข้อมูลทดสอบ**ก่อน หรือส่ง `TEST_EMAIL` / `TEST_PASSWORD` ให้สคริปต์ที่รองรับ (`test:upload`, `test:attachment`)
 > ห้ามรันชุดนี้กับฐานข้อมูล production
-
-> **หมายเหตุ `test:agegate`** — ต้องรันกับเซิร์ฟเวอร์ที่เปิดเกต (`AGE_GATE_ENABLED=true`) ถ้าเกตปิดอยู่สคริปต์จะข้ามตัวเองและจบด้วย exit 0
-> สคริปต์ล้างตาราง `AgeCheck` ก่อนและหลังรัน (แถวพวกนี้คือผลยืนยันที่ทิ้งได้ ไม่ใช่ข้อมูลผู้ใช้) จึงเริ่มจากสภาพเดิมทุกครั้ง
 
 > **หมายเหตุเรื่อง rate limit** — `authLimiter` นับเฉพาะการล็อกอินที่**ล้มเหลว** ต่อ IP (`AUTH_LIMIT_MAX` ครั้งต่อ `AUTH_LIMIT_WINDOW_MINUTES` นาที)
 > `test:account` ทำให้ล็อกอินล้มเหลว 3 ครั้งโดยเจตนา ถ้ารันซ้ำหลายรอบอาจเต็มโควตา — สคริปต์จะหยุดพร้อมบอกวิธีแก้ทันที
@@ -649,6 +629,5 @@ curl http://localhost:4000/api/metrics     # Prometheus
 - **Markdown renderer escape HTML ก่อนแปลง** และกรอง URL scheme อันตราย
 - **CSP, HSTS, frame-ancestors 'none', nosniff** ตั้งโดย Helmet
   - `script-src` เป็น `'self'` ไม่มี `'unsafe-inline'` — inline script เดียวที่อนุญาตคือตัวกันธีมกะพริบใน `index.html` โดยเซิร์ฟเวอร์คำนวณ sha256 จากไฟล์ที่เสิร์ฟจริงตอนบูต (แก้ snippet แล้ว hash ตามให้เอง ไม่มีทางหลุด sync)
-- **Age gate** เก็บเฉพาะผลการยืนยันกับ hash ของ IP (HMAC-SHA256) ไม่เก็บวันเกิด และไม่เก็บคำตอบที่ไม่ผ่านเลย
 - **Audit log** ทุกการเปลี่ยนสิทธิ์ ระงับบัญชี ลบบัญชี และแก้ไขรายงาน
 - Cookie เปลี่ยนเป็น `secure` + `sameSite=none` อัตโนมัติเมื่อ `NODE_ENV=production`

@@ -57,11 +57,6 @@ const MOCK_REPLIES: Record<string, string[]> = {
     'รองรับไฟล์หลากหลาย เช่น รูปภาพ เอกสาร วิดีโอ เสียง ซิป โค้ด และฟอนต์กว่า 60 นามสกุลครับ',
     'ไฟล์ที่อัปโหลดแล้วแต่ยังไม่ผูกกับบทความ จะถูกลบทิ้งอัตโนมัติหลัง 24 ชั่วโมงครับ',
   ],
-  ageGate: [
-    'เกตยืนยันอายุ (Age Gate) คือการยืนยันว่ามีอายุ 18 ปีขึ้นไปก่อนอ่านเนื้อหาครับ',
-    'เลือกวัน เดือน ปีเกิดเป็น พ.ศ. แล้วระบบจะแปลงเป็น ค.ศ. ให้เองครับ',
-    'ไม่ต้องกังวล ระบบไม่เก็บวันเกิดจริงไว้ เก็บแค่ผลการยืนยันและ hash ของ IP ครับ',
-  ],
   seoPwa: [
     'WKSL รองรับ PWA ติดตั้งเป็นแอปบนมือถือหรือเดสก์ท็อปได้ มี service worker และ offline.html ครับ',
     'มี sitemap.xml และ robots.txt ที่สร้างจากข้อมูลจริง ช่วยเรื่อง SEO ครับ',
@@ -84,7 +79,6 @@ function pickMockReply(message: string): string {
   if (/แชท|ห้องแชท|ส่งข้อความ|real.time|เรียลไทม์/.test(m)) return random(MOCK_REPLIES.howToChat);
   if (/ไฟล์แนบ|attachment|อัปโหลด|ไฟล์|นามสกุล/.test(m)) return random(MOCK_REPLIES.attachments);
   if (/เกี่ยวกับ|วกเรา|about|WKSL คือ|WKSL 是/.test(m)) return random(MOCK_REPLIES.about);
-  if (/อายุ|age gate|ยืนยันอายุ|18 ปี|พ.ศ.|ค.ศ./.test(m)) return random(MOCK_REPLIES.ageGate);
   if (/pwa|seo|sitemap|ติดตั้งแอป|ออฟไลน์|metadata/.test(m)) return random(MOCK_REPLIES.seoPwa);
   return random(MOCK_REPLIES.default);
 }

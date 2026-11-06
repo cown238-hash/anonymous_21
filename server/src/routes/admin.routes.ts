@@ -273,34 +273,4 @@ router.patch(
   }),
 );
 
-/** GET /api/admin/settings/age-gate - check if age gate is enabled. */
-router.get(
-  '/settings/age-gate',
-  asyncHandler(async (_req, res) => {
-    const setting = await prisma.systemSetting.findUnique({
-      where: { key: 'age_gate_enabled' },
-    });
-    return ok(res, { enabled: setting ? setting.value === 'true' : false });
-  }),
-);
-
-/** PATCH /api/admin/settings/age-gate - toggle age gate on/off. */
-router.patch(
-  '/settings/age-gate',
-  validateBody(
-    z.object({
-      enabled: z.boolean(),
-    }),
-  ),
-  asyncHandler(async (req, res) => {
-    const { enabled } = req.body as { enabled: boolean };
-    const setting = await prisma.systemSetting.upsert({
-      where: { key: 'age_gate_enabled' },
-      update: { value: enabled ? 'true' : 'false' },
-      create: { key: 'age_gate_enabled', value: enabled ? 'true' : 'false' },
-    });
-    return ok(res, { enabled: setting.value === 'true' });
-  }),
-);
-
 export default router;

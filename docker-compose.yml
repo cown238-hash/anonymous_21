@@ -50,14 +50,6 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       MAIL_FROM: ${MAIL_FROM:-WKSL <no-reply@nimbus.local>}
-      # Confirms a visitor is old enough before the reading routes answer.
-      # Off unless set — see .env.docker.example.
-      AGE_GATE_ENABLED: ${AGE_GATE_ENABLED:-false}
-      AGE_GATE_MIN_AGE: ${AGE_GATE_MIN_AGE:-18}
-      AGE_GATE_TTL_DAYS: ${AGE_GATE_TTL_DAYS:-365}
-      # Defaults to on: set to false to stop sharing a confirmation with anyone
-      # else on the same address.
-      AGE_GATE_IP_BINDING: ${AGE_GATE_IP_BINDING:-true}
       ENABLE_JOBS: ${ENABLE_JOBS:-true}
       JOB_INTERVAL_MINUTES: ${JOB_INTERVAL_MINUTES:-30}
     ports:

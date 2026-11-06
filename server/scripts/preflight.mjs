@@ -174,18 +174,6 @@ info(
     : 'off — expected when the compose `jobs` service runs separately',
 );
 
-if (truthy(process.env.AGE_GATE_ENABLED ?? '')) {
-  const minAge = process.env.AGE_GATE_MIN_AGE ?? '18';
-  const ttl = process.env.AGE_GATE_TTL_DAYS ?? '365';
-  const bound = truthy(process.env.AGE_GATE_IP_BINDING ?? 'true');
-  info(
-    'AGE_GATE',
-    `on, ${minAge}+ for ${ttl} day(s)${bound ? ', address-bound' : ', cookie only'}`,
-  );
-} else {
-  info('AGE_GATE', 'off — every visitor is served content immediately');
-}
-
 // ---- database ----------------------------------------------------------------
 console.log('\ndatabase');
 if (!databaseUrl) {
@@ -267,21 +255,6 @@ if (!databaseUrl) {
       info('content', `tables not readable yet (${message})`);
     }
 
-    if (truthy(process.env.AGE_GATE_ENABLED ?? '')) {
-      try {
-        const [gate] = await prisma.$queryRawUnsafe(
-          `SELECT count(*)::int AS total,
-                  (SELECT count(*) FROM "AgeCheck" WHERE "expiresAt" > now())::int AS live
-             FROM "AgeCheck"`,
-        );
-        ok('age gate table', `${gate.live} live confirmation(s) of ${gate.total} row(s)`);
-      } catch {
-        fail(
-          'age gate is on but the AgeCheck table is missing',
-          'run `npm run db:deploy` — the content routes would answer 500',
-        );
-      }
-    }
   } catch (error) {
     fail('cannot connect', String(error?.message ?? error).split('\n')[0]);
   } finally {

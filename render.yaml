@@ -68,21 +68,6 @@ services:
       - key: TWO_FACTOR_ISSUER
         value: WKSL
 
-      # ---- Age gate ----
-      # ยืนยันอายุ 18+ ก่อนเสิร์ฟเนื้อหา (โพสต์/คอมเมนต์/สมาชิก/หมวดหมู่/แท็ก/สถิติ)
-      # เส้นทางล็อกอิน, health check และ sitemap ยังเปิด เพื่อให้เข้าถึงหน้าเกตได้
-      - key: AGE_GATE_ENABLED
-        value: 'true'
-      - key: AGE_GATE_MIN_AGE
-        value: '18'
-      # ผลการยืนยันมีอายุ 1 ปี แล้วจึงถามใหม่
-      - key: AGE_GATE_TTL_DAYS
-        value: '365'
-      # จำผู้ใช้เดิมด้วย hash ของ IP — ตั้ง 'false' ถ้าไม่อยากให้ผู้ใช้ที่แชร์
-      # IP เดียวกัน (ออฟฟิศ/โรงเรียน) ได้ผลของกันและกัน
-      - key: AGE_GATE_IP_BINDING
-        value: 'true'
-
       # ----ค่าที่ Render กรอกให้ ----
       - key: DATABASE_URL
         fromDatabase:

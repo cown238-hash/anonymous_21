@@ -17,7 +17,7 @@
  *
  *   node scripts/google-oauth-test.mjs
  *
- * Runs against a live server, like age-gate-test.mjs.
+ * Runs against a live server, like the other e2e scripts.
  */
 const base = process.env.TEST_BASE ?? 'http://localhost:4000/api';
 const FLOW_COOKIE = 'nimbus_google_flow';
