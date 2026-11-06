@@ -18,6 +18,9 @@ router.get('/config', (_req, res) =>
     maxUploadMb: env.MAX_UPLOAD_MB,
     maxFilesPerUpload: env.MAX_FILES_PER_UPLOAD,
     maxAttachmentsPerPost: env.MAX_ATTACHMENTS_PER_POST,
+    // Large files ride the resumable chunked path instead of one big request.
+    maxChunkedUploadMb: env.MAX_CHUNKED_UPLOAD_MB,
+    chunkUploadMb: env.UPLOAD_CHUNK_MB,
   }),
 );
 

@@ -141,7 +141,7 @@ export function AttachmentPicker({
           {full ? `ครบ ${max} ไฟล์แล้ว` : 'ลากไฟล์มาวาง หรือคลิกเพื่อเลือก'}
         </p>
         <p className="mt-1 text-xs text-ink-400">
-          เอกสาร รูปภาพ ซิป วิดีโอ ซอร์สโค้ด · ไม่เกิน {maxMb} MB ต่อไฟล์ · เหลือ {max - total} ช่อง
+          เอกสาร รูปภาพ ซิป วิดีโอ ซอร์สโค้ด · ไม่เกิน {maxMb >= 1024 ? `${(maxMb / 1024).toFixed(maxMb % 1024 === 0 ? 0 : 1)} GB` : `${maxMb} MB`} ต่อไฟล์ · เหลือ {max - total} ช่อง
         </p>
       </label>
 

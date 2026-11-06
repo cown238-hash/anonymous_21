@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
 import { removeUploadByFilename } from '../middleware/upload.js';
+import { pruneStaleChunkUploads } from './chunked-upload.js';
 
 /**
  * Periodic maintenance, run in-process by default and also exposed as
@@ -100,6 +101,12 @@ async function pruneUnclaimedAttachments() {
   return { attachments: stale.length };
 }
 
+/** Removes incomplete chunked-upload sessions older than a day. */
+async function pruneStaleChunks() {
+  const removed = await pruneStaleChunkUploads();
+  return { chunkSessions: removed };
+}
+
 export async function runJobs(): Promise<Record<string, unknown>> {
   const started = Date.now();
   const tasks: Array<[string, () => Promise<Record<string, unknown>>]> = [
@@ -109,6 +116,7 @@ export async function runJobs(): Promise<Record<string, unknown>> {
     ['accounts', unlockExpiredAccounts],
     ['uploads', pruneOrphanUploads],
     ['unclaimedAttachments', pruneUnclaimedAttachments],
+    ['staleChunks', pruneStaleChunks],
     ['deletedAccounts', purgeDeletedAccounts],
   ];
 

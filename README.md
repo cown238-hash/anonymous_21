@@ -54,7 +54,8 @@
 - อัปโหลดหลายไฟล์พร้อมกัน — เอกสาร, รูปภาพ, ตาราง, สไลด์, ซิป, วิดีโอ/เสียง, ซอร์สโค้ด, ฟอนต์ (**68 นามสกุล**)
 - ลากไฟล์มาวางในหน้าเขียนบทความได้, นำออก/เพิ่มได้ภายหลัง, แก้ไขบทความเดิมได้
 - รายการไฟล์ในหน้าอ่านพร้อมชนิดและขนาด, การ์ดหน้าเลือกมีจำนวนไฟล์แนบ
-- **จำกัด** — `MAX_UPLOAD_MB` ต่อไฟล์, `MAX_FILES_PER_UPLOAD` ต่อครั้ง, `MAX_ATTACHMENTS_PER_POST` ต่อบทความ (client ดึงค่าจาก `GET /api/config` จึงไม่ hardcode ซ้ำ)
+- **ไฟล์ใหญ่ถึง 1 GB** — ไฟล์ที่เกิน `MAX_UPLOAD_MB` จะถูกแบ่งเป็นชิ้น (`UPLOAD_CHUNK_MB`, ค่าเริ่มต้น 16 MB) อัปโหลดทีละชิ้นและต่อกลับที่เซิร์ฟเวอร์ — client ส่งต่ออัตโนมัติเมื่อไฟล์ใหญ่กว่า cap ปกติ ข้ามข้อจำกัด request body ของ proxy/Cloudflare ได้ทั้งหมด
+- **จำกัด** — `MAX_UPLOAD_MB` ต่อไฟล์ (โหมดปกติ), `MAX_CHUNKED_UPLOAD_MB` (ค่าเริ่มต้น 1024 = 1 GB) สำหรับไฟล์ใหญ่, `MAX_FILES_PER_UPLOAD` ต่อครั้ง, `MAX_ATTACHMENTS_PER_POST` ต่อบทความ (client ดึงค่าจาก `GET /api/config` จึงไม่ hardcode ซ้ำ)
 
 **ความปลอดภัย**
 - อัปโหลด → ได้ `Attachment` id → บทความ "claim" id ตอนบันทึก แนบไฟล์ของคนอื่นไม่ได้
@@ -381,7 +382,9 @@ BACKUP_S3_BUCKET=my-bucket ./scripts/backup.sh   # อัปโหลดขึ�
 | `EMAIL_VERIFY_TTL_HOURS` | `48` | อายุลิงก์ยืนยันอีเมล |
 | `AUTH_LIMIT_MAX` | `20` | จำนวนครั้งที่ **ล็อกอินล้มเหลว** ต่อ IP ก่อนถูกจำกัดอัตรา (เฉพาะครั้งที่ล้มเหลว) |
 | `AUTH_LIMIT_WINDOW_MINUTES` | `15` | ความยาวหน้าต่างของตัวจำกัดอัตรา |
-| `MAX_UPLOAD_MB` | `5` | ขนาดสูงสุดต่อไฟล์ที่อัปโหลด — ค่าที่ client ใช้เช็คก่อนส่งมาจาก `GET /api/config` (เปลี่ยน `.env` แล้วไม่ต้อง build client ใหม่) ถ้ารันหลัง Cloudflare ให้ไม่เกิน 100 เพราะ edge ของ Cloudflare ปฏิเสธ request ใหญ่กว่านั้น |
+| `MAX_UPLOAD_MB` | `50` | ขนาดสูงสุดต่อไฟล์ที่อัปโหลดด้วยคำขอเดียว — ไฟล์ใหญ่กว่านี้ใช้เส้นทางแบบแบ่งชิ้นแทน |
+| `UPLOAD_CHUNK_MB` | `16` | ขนาดชิ้นสำหรับอัปโหลดไฟล์ใหญ่แบบแบ่งชิ้น |
+| `MAX_CHUNKED_UPLOAD_MB` | `1024` | ขนาดสูงสุดของไฟล์ใหญ่อัปโหลดแบบแบ่งชิ้น (MB; 1024 = 1 GB) |
 | `MAX_FILES_PER_UPLOAD` | `10` | จำนวนไฟล์สูงสุดต่อคำขออัปโหลดหลายไฟล์ |
 | `MAX_ATTACHMENTS_PER_POST` | `20` | จำนวนไฟล์แนบสูงสุดต่อบทความ |
 | `SMTP_*` | — | เว้นว่างไว้ = อีเมลถูกพิมพ์ลง log |
@@ -492,6 +495,7 @@ BACKUP_S3_BUCKET=my-bucket ./scripts/backup.sh   # อัปโหลดขึ�
 | `GET /api/notifications/*` | การแจ้งเตือน |
 | `POST /api/uploads/image` | อัปโหลดภาพปก |
 | `POST /api/uploads/files` · `DELETE /api/uploads/files/:id` | อัปโหลดหลายไฟล์ / ทิ้งไฟล์ที่ยังไม่ผูกกับบทความ |
+| `POST /api/uploads/chunks/init` · `POST /api/uploads/chunks` · `GET /api/uploads/chunks/:id` · `POST /api/uploads/chunks/:id/complete` · `DELETE /api/uploads/chunks/:id` | อัปโหลดไฟล์ใหญ่แบบแบ่งชิ้น (สูงสุด `MAX_CHUNKED_UPLOAD_MB`) เชื่อมกลับด้วย id เดิม |
 | `GET/POST /api/reports/*` | รายงานเนื้อหา |
 
 ### ผู้ดูแลระบบ

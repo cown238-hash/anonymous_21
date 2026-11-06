@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { uploadAttachment } from '../lib/upload';
 import { toast } from '../lib/toast';
 import { countWords, renderMarkdown } from '../lib/markdown';
 import { useSeo } from '../lib/seo';
@@ -36,12 +37,16 @@ import type { Attachment, Category, Post, PostStatus } from '../types';
 const DEFAULT_MAX_FILES = 20;
 const DEFAULT_MAX_MB = 5;
 const DEFAULT_MAX_FILES_PER_REQUEST = 10;
+const DEFAULT_MAX_CHUNKED_MB = 1024;
 
 /** Caps the editor needs before letting a file leave the browser. */
 interface UploadCaps {
   maxUploadMb: number;
   maxFilesPerUpload: number;
   maxAttachmentsPerPost: number;
+  /** Cap for the resumable chunked path (files bigger than maxUploadMb). */
+  maxChunkedUploadMb?: number;
+  chunkUploadMb?: number;
 }
 
 const STATUS_OPTIOiS: Array<{ value: PostStatus; label: string }> = [
@@ -73,6 +78,7 @@ export function PostEditorPage() {
   const [pending, setPending] = useState<PendingUpload[]>([]);
   const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [categoryId, setCategoryId] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [status, setStatus] = useState<PostStatus>('PUBLISHED');
@@ -93,6 +99,7 @@ export function PostEditorPage() {
   });
   const MAX_MB = caps?.maxUploadMb ?? DEFAULT_MAX_MB;
   const MAX_FILES = caps?.maxAttachmentsPerPost ?? DEFAULT_MAX_FILES;
+  const MAX_CHUNKED_MB = caps?.maxChunkedUploadMb ?? DEFAULT_MAX_CHUNKED_MB;
   // One request cannot carry more than this many files, whatever room is left.
   const MAX_PER_REQUEST = caps?.maxFilesPerUpload ?? DEFAULT_MAX_FILES_PER_REQUEST;
 
@@ -161,43 +168,77 @@ export function PostEditorPage() {
       toast.info(`เลือกได้เพียง ${room} ไฟล์ (สูงสุด ${MAX_FILES} ไฟล์)`);
     }
 
-    // Sending more than the server accepts in one request fails the whole
-    // batch, so hold the rest back and say so instead of dropping them.
-    const batch = accepted.slice(0, MAX_PER_REQUEST);
-    if (batch.length < accepted.length) {
-      toast.info(`อัปโหลดครั้งละไม่เกิน ${MAX_PER_REQUEST} ไฟล์ — เหลือ ${accepted.length - batch.length} ไฟล์ ให้เลือกเพิ่มอีกรอบ`);
-    }
-
-    const tooBig = batch.filter((f) => f.size > MAX_MB * 1024 * 1024);
-    const usable = batch.filter((f) => f.size <= MAX_MB * 1024 * 1024);
+    // Anything up to MAX_CHUNKED_MB is fair game — files bigger than the
+    // single-request cap ride the resumable chunked path instead.
+    const tooBig = accepted.filter((f) => f.size > MAX_CHUNKED_MB * 1024 * 1024);
+    const usable = accepted.filter((f) => f.size <= MAX_CHUNKED_MB * 1024 * 1024);
     for (const file of tooBig) {
-      toast.error(`${file.name} ใหญ่เกิน ${MAX_MB} MB (${formatBytes(file.size)})`);
+      toast.error(`${file.name} ใหญ่เกิน ${MAX_CHUNKED_MB} MB (${formatBytes(file.size)})`);
     }
     if (usable.length === 0) return;
 
-    setUploadingFiles(true);
-    try {
-      const fd = new FormData();
-      for (const file of usable) fd.append('files', file);
-      const result = await api.upload<{
-        files: Array<{ id: string; originalName: string; mimeType: string; size: number }>;
-      }>('/uploads/files', fd);
+    const small = usable.filter((f) => f.size <= MAX_MB * 1024 * 1024);
+    const large = usable.filter((f) => f.size > MAX_MB * 1024 * 1024);
 
-      setPending((prev) => [
-        ...prev,
-        ...result.files.map((f) => ({
-          localId: `${f.id}-${prev.length}-${Math.random().toString(36).slice(2, 7)}`,
-          id: f.id,
-          name: f.originalName,
-          mimeType: f.mimeType,
-          size: f.size,
-        })),
-      ]);
-      toast.success(`อัปโหลด ${result.files.length} ไฟล์แล้ว — อย่าลืมกดบันทึกเพื่อแนบ`);
+    // Sending more than the server accepts in one request fails the whole
+    // batch, so hold the rest back and say so instead of dropping them.
+    const batch = small.slice(0, MAX_PER_REQUEST);
+    if (batch.length < small.length) {
+      toast.info(`อัปโหลดครั้งละไม่เกิน ${MAX_PER_REQUEST} ไฟล์ — เหลือ ${small.length - batch.length} ไฟล์ ให้เลือกเพิ่มอีกรอบ`);
+    }
+
+    setUploadingFiles(true);
+    setUploadProgress(null);
+    try {
+      if (batch.length > 0) {
+        const fd = new FormData();
+        for (const file of batch) fd.append('files', file);
+        const result = await api.upload<{
+          files: Array<{ id: string; originalName: string; mimeType: string; size: number }>;
+        }>('/uploads/files', fd);
+
+        setPending((prev) => [
+          ...prev,
+          ...result.files.map((f) => ({
+            localId: `${f.id}-${prev.length}-${Math.random().toString(36).slice(2, 7)}`,
+            id: f.id,
+            name: f.originalName,
+            mimeType: f.mimeType,
+            size: f.size,
+          })),
+        ]);
+      }
+
+      // Large files upload sequentially through the chunked path, with a
+      // progress bar so a multi-minute 1 GB transfer does not feel dead.
+      for (const file of large) {
+        setUploadProgress(0);
+        const uploaded = await uploadAttachment(file, {
+          normalLimitMb: MAX_MB,
+          onProgress: (fraction) => setUploadProgress(fraction),
+        });
+        setPending((prev) => [
+          ...prev,
+          {
+            localId: `${uploaded.id}-${prev.length}-${Math.random().toString(36).slice(2, 7)}`,
+            id: uploaded.id,
+            name: uploaded.originalName,
+            mimeType: uploaded.mimeType,
+            size: uploaded.size,
+          },
+        ]);
+        setUploadProgress(null);
+      }
+
+      const uploadedCount = batch.length + large.length;
+      if (uploadedCount > 0) {
+        toast.success(`อัปโหลด ${uploadedCount} ไฟล์แล้ว — อย่าลืมกดบันทึกเพื่อแนบ`);
+      }
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
       setUploadingFiles(false);
+      setUploadProgress(null);
     }
   };
 
@@ -525,10 +566,27 @@ export function PostEditorPage() {
               {uploadingFiles && (
                 <span className="flex items-center gap-1.5 text-xs text-brand-400">
                   <Loader2 size={12} className="animate-spin" />
-                  กำลังอัปโหลด
+                  {uploadProgress !== null
+                    ? `กำลังอัปโหลด ${Math.round(uploadProgress * 100)}%`
+                    : 'กำลังอัปโหลด'}
                 </span>
               )}
             </div>
+
+            {uploadProgress !== null && (
+              <div
+                className="mb-3 h-2 overflow-hidden rounded-full bg-surface-2"
+                role="progressbar"
+                aria-valuenow={Math.round(uploadProgress * 100)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <div
+                  className="h-full rounded-full bg-brand-500 transition-all duration-200"
+                  style={{ width: `${uploadProgress * 100}%` }}
+                />
+              </div>
+            )}
 
             <AttachmentPicker
               attachments={attachments}
@@ -537,7 +595,7 @@ export function PostEditorPage() {
               onRemoveSaved={removeSavedAttachment}
               onDiscardPending={(id) => void discardPending(id)}
               max={MAX_FILES}
-              maxMb={MAX_MB}
+              maxMb={MAX_CHUNKED_MB}
               disabled={saving}
             />
 

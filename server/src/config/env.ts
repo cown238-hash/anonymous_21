@@ -90,6 +90,12 @@ const schema = z.object({
   MAX_FILES_PER_UPLOAD: z.coerce.number().int().min(1).max(20).default(10),
   /// Attachments a single post may carry once saved.
   MAX_ATTACHMENTS_PER_POST: z.coerce.number().int().min(1).max(50).default(20),
+  /// Chunk size for the resumable large-file upload path. Small enough to pass
+  /// any proxy in front of the app.
+  UPLOAD_CHUNK_MB: z.coerce.number().int().min(2).max(40).default(16),
+  /// Total size one chunked upload may reach. This is how files far bigger than
+  /// the small-request upload cap (e.g. 1 GB videos) get through.
+  MAX_CHUNKED_UPLOAD_MB: z.coerce.number().int().min(50).max(10240).default(1024),
 
   TRUST_PROXY: bool,
   /// How many reverse proxies stand in front of the app, which is what makes

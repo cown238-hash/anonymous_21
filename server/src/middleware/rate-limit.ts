@@ -51,3 +51,13 @@ export const uploadLimiter = make({
     error: { message: 'อัปโหลดบ่อยเกินไป กรุณารอสักครู่', code: 'TOO_MANY_REQUESTS' },
   },
 });
+
+/** Chunks of one big upload arrive in bursts — keep the ceiling high but finite. */
+export const chunkUploadLimiter = make({
+  windowMs: 60_000,
+  limit: 240,
+  message: {
+    success: false,
+    error: { message: 'อัปโหลดบ่อยเกินไป กรุณารอสักครู่', code: 'TOO_MANY_REQUESTS' },
+  },
+});
