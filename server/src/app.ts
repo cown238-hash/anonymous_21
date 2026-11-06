@@ -37,15 +37,90 @@ function inlineScriptHashes(html: string): string[] {
   return hashes;
 }
 
+/** Reads `client/dist/index.html` and hashes whatever inline scripts it currently holds. */
+function computeInlineHashes(indexHtml: string): string[] {
+  try {
+    return inlineScriptHashes(fs.readFileSync(indexHtml, 'utf8'));
+  } catch {
+    // No build on disk (dev checkout without a client build) — nothing to hash.
+    return [];
+  }
+}
+
+/**
+ * Security headers, with the CSP's `script-src` pinned to the inline scripts
+ * present in the `client/dist/index.html` we are about to serve.
+ */
+function buildSecurityMiddleware(inlineHashes: string[]) {
+  return helmet({
+    // Uploaded media is served to a dev origin on a different port.
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"],
+        objectSrc: ["'none'"],
+        formAction: ["'self'"],
+        // Vite injects styles at runtime in dev; the built CSS is self-hosted.
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        // 'self' plus the hashes of the inline scripts actually present in the
+        // index.html we serve — currently the anti-flash theme bootstrap.
+        // cloudflareinsights.com hosts the Web Analytics beacon Cloudflare
+        // injects at the edge.
+        scriptSrc: ["'self'", ...inlineHashes, 'https://static.cloudflareinsights.com'],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        connectSrc: ["'self'", 'ws:', 'wss:', 'https://static.cloudflareinsights.com', 'https://cloudflareinsights.com'],
+        fontSrc: ["'self'", 'data:'],
+        upgradeInsecureRequests: env.isProd ? [] : null,
+      },
+    },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    // Preloading is a statement about a whole registrable domain and
+    // `includeSubDomains` only reaches `*.this-host`, so both are opt-in: a
+    // subdomain deployment should not claim what it cannot deliver.
+    hsts: env.isProd
+      ? {
+          maxAge: 15_552_000,
+          includeSubDomains: env.HSTS_INCLUDE_SUBDOMAINS,
+          preload: env.HSTS_INCLUDE_SUBDOMAINS,
+        }
+      : false,
+    crossOriginOpenerPolicy: { policy: 'same-origin' },
+  });
+}
+
+function fileMtimeMs(file: string): number {
+  try {
+    return fs.statSync(file).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
 export function createApp() {
   const app = express();
 
   const clientDist = path.resolve(env.serverRoot, '..', 'client', 'dist');
   const indexHtml = path.join(clientDist, 'index.html');
-  const hasClientBuild = fs.existsSync(indexHtml);
-  const inlineHashes = hasClientBuild
-    ? inlineScriptHashes(fs.readFileSync(indexHtml, 'utf8'))
-    : [];
+
+  /**
+   * The CSP is built once at boot, but the served `index.html` changes on every
+   * client rebuild — and the inline-script hashes must follow it, or the browser
+   * blocks the anti-flash theme bootstrap. Rebuild the helmet middleware when the
+   * file's mtime moves, instead of pinning the hashes computed at boot.
+   */
+  let helmetMtime = fileMtimeMs(indexHtml);
+  let securityMiddleware = buildSecurityMiddleware(computeInlineHashes(indexHtml));
+  app.use((req, res, next) => {
+    const mtime = fileMtimeMs(indexHtml);
+    if (mtime !== helmetMtime) {
+      helmetMtime = mtime;
+      securityMiddleware = buildSecurityMiddleware(computeInlineHashes(indexHtml));
+    }
+    return securityMiddleware(req, res, next);
+  });
 
   // Cloudflare → Caddy → app is two hops, so read the hop count from config
   // instead of hard-coding one — otherwise `req.ip` stays on the edge address.
@@ -53,44 +128,6 @@ export function createApp() {
   app.disable('x-powered-by');
   // Keep raw IPs out of the rate limiter's default key when behind a proxy.
   app.set('etag', 'strong');
-
-  app.use(
-    helmet({
-      // Uploaded media is served to a dev origin on a different port.
-      crossOriginResourcePolicy: { policy: 'cross-origin' },
-      contentSecurityPolicy: {
-        useDefaults: true,
-        directives: {
-          defaultSrc: ["'self'"],
-          baseUri: ["'self'"],
-          frameAncestors: ["'none'"],
-          objectSrc: ["'none'"],
-          formAction: ["'self'"],
-          // Vite injects styles at runtime in dev; the built CSS is self-hosted.
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          // 'self' plus the hashes of the inline scripts actually present in the
-          // index.html we serve — currently the anti-flash theme bootstrap.
-          scriptSrc: ["'self'", ...inlineHashes],
-          imgSrc: ["'self'", 'data:', 'blob:'],
-          connectSrc: ["'self'", 'ws:', 'wss:'],
-          fontSrc: ["'self'", 'data:'],
-          upgradeInsecureRequests: env.isProd ? [] : null,
-        },
-      },
-      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-      // Preloading is a statement about a whole registrable domain and
-      // `includeSubDomains` only reaches `*.this-host`, so both are opt-in: a
-      // subdomain deployment should not claim what it cannot deliver.
-      hsts: env.isProd
-        ? {
-            maxAge: 15_552_000,
-            includeSubDomains: env.HSTS_INCLUDE_SUBDOMAINS,
-            preload: env.HSTS_INCLUDE_SUBDOMAINS,
-          }
-        : false,
-      crossOriginOpenerPolicy: { policy: 'same-origin' },
-    }),
-  );
 
   app.use(
     cors({
@@ -143,7 +180,7 @@ export function createApp() {
   app.use('/api', globalLimiter, attachUser, routes);
 
   // In production the API also serves the built client.
-  if (hasClientBuild) {
+  if (fs.existsSync(indexHtml)) {
     app.use(
       express.static(clientDist, {
         index: false,
