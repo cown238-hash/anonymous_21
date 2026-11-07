@@ -36,7 +36,6 @@ import type { Attachment, Category, Post, PostStatus } from '../types';
  */
 const DEFAULT_MAX_FILES = 20;
 const DEFAULT_MAX_MB = 5;
-const DEFAULT_MAX_FILES_PER_REQUEST = 10;
 const DEFAULT_MAX_CHUNKED_MB = 1024;
 
 /** Caps the editor needs before letting a file leave the browser. */
@@ -100,8 +99,6 @@ export function PostEditorPage() {
   const MAX_MB = caps?.maxUploadMb ?? DEFAULT_MAX_MB;
   const MAX_FILES = caps?.maxAttachmentsPerPost ?? DEFAULT_MAX_FILES;
   const MAX_CHUNKED_MB = caps?.maxChunkedUploadMb ?? DEFAULT_MAX_CHUNKED_MB;
-  // One request cannot carry more than this many files, whatever room is left.
-  const MAX_PER_REQUEST = caps?.maxFilesPerUpload ?? DEFAULT_MAX_FILES_PER_REQUEST;
 
   // Load the existing post when editing.
   const { data: existing, isLoading } = useQuery({
@@ -154,7 +151,8 @@ export function PostEditorPage() {
   /**
    * Uploads files to the server first, which returns attachment ids. The ids
    * ride along with the post payload and are claimed when the post is saved.
-   * A file the user then removes is discarded explicitly so it does not linger.
+   * Every file goes through the chunked path so large mobile uploads never
+   * time out at the Cloudflare edge.
    */
   const addAttachments = async (files: File[]) => {
     const room = MAX_FILES - attachments.length - pending.length;
@@ -168,8 +166,6 @@ export function PostEditorPage() {
       toast.info(`เลือกได้เพียง ${room} ไฟล์ (สูงสุด ${MAX_FILES} ไฟล์)`);
     }
 
-    // Anything up to MAX_CHUNKED_MB is fair game — files bigger than the
-    // single-request cap ride the resumable chunked path instead.
     const tooBig = accepted.filter((f) => f.size > MAX_CHUNKED_MB * 1024 * 1024);
     const usable = accepted.filter((f) => f.size <= MAX_CHUNKED_MB * 1024 * 1024);
     for (const file of tooBig) {
@@ -177,44 +173,14 @@ export function PostEditorPage() {
     }
     if (usable.length === 0) return;
 
-    const small = usable.filter((f) => f.size <= MAX_MB * 1024 * 1024);
-    const large = usable.filter((f) => f.size > MAX_MB * 1024 * 1024);
-
-    // Sending more than the server accepts in one request fails the whole
-    // batch, so hold the rest back and say so instead of dropping them.
-    const batch = small.slice(0, MAX_PER_REQUEST);
-    if (batch.length < small.length) {
-      toast.info(`อัปโหลดครั้งละไม่เกิน ${MAX_PER_REQUEST} ไฟล์ — เหลือ ${small.length - batch.length} ไฟล์ ให้เลือกเพิ่มอีกรอบ`);
-    }
-
     setUploadingFiles(true);
     setUploadProgress(null);
     try {
-      if (batch.length > 0) {
-        const fd = new FormData();
-        for (const file of batch) fd.append('files', file);
-        const result = await api.upload<{
-          files: Array<{ id: string; originalName: string; mimeType: string; size: number }>;
-        }>('/uploads/files', fd);
-
-        setPending((prev) => [
-          ...prev,
-          ...result.files.map((f) => ({
-            localId: `${f.id}-${prev.length}-${Math.random().toString(36).slice(2, 7)}`,
-            id: f.id,
-            name: f.originalName,
-            mimeType: f.mimeType,
-            size: f.size,
-          })),
-        ]);
-      }
-
-      // Large files upload sequentially through the chunked path, with a
-      // progress bar so a multi-minute 1 GB transfer does not feel dead.
-      for (const file of large) {
+      // Upload sequentially so progress is easy to read and we don't flood
+      // the tunnel with many concurrent requests.
+      for (const file of usable) {
         setUploadProgress(0);
         const uploaded = await uploadAttachment(file, {
-          normalLimitMb: MAX_MB,
           onProgress: (fraction) => setUploadProgress(fraction),
         });
         setPending((prev) => [
@@ -230,9 +196,8 @@ export function PostEditorPage() {
         setUploadProgress(null);
       }
 
-      const uploadedCount = batch.length + large.length;
-      if (uploadedCount > 0) {
-        toast.success(`อัปโหลด ${uploadedCount} ไฟล์แล้ว — อย่าลืมกดบันทึกเพื่อแนบ`);
+      if (usable.length > 0) {
+        toast.success(`อัปโหลด ${usable.length} ไฟล์แล้ว — อย่าลืมกดบันทึกเพื่อแนบ`);
       }
     } catch (err) {
       toast.error((err as Error).message);

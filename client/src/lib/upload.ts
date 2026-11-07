@@ -31,26 +31,17 @@ const MAX_CHUNK_RETRIES = 3;
 
 /**
  * Uploads one file and resolves to the attachment record the server created.
- * `onProgress` receives a 0..1 fraction (per-chunk granularity on big files).
+ * Every file goes through the chunked path: each chunk is small enough to pass
+ * any proxy (Cloudflare edge rejects bodies above ~100 MB), and chunks are
+ * retried automatically so flaky mobile connections don't lose the whole file.
+ * `onProgress` receives a 0..1 fraction.
  */
 export async function uploadAttachment(
   file: File,
   options: {
-    /** Max size the regular endpoint accepts; bigger files switch to chunks. */
-    normalLimitMb?: number;
     onProgress?: (fraction: number) => void;
   } = {},
 ): Promise<UploadedAttachment> {
-  const normalLimitMb = options.normalLimitMb ?? 100;
-
-  if (file.size <= normalLimitMb * 1024 * 1024) {
-    const fd = new FormData();
-    fd.append('files', file);
-    const result = await api.upload<{ files: UploadedAttachment[] }>('/uploads/files', fd);
-    options.onProgress?.(1);
-    return result.files[0];
-  }
-
   const init = await api.post<InitResponse>('/uploads/chunks/init');
   const chunkSize = init.chunkSizeMb * 1024 * 1024;
   const total = Math.ceil(file.size / chunkSize);
