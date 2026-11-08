@@ -26,6 +26,7 @@ import { PostEditorPage } from './pages/PostEditorPage';
 import { ChatPage } from './pages/ChatPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { FileUploadPage } from './pages/FileUploadPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { BookmarksPage } from './pages/BookmarksPage';
 import { AdminPage } from './pages/AdminPage';
@@ -122,6 +123,7 @@ export default function App() {
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
+          <Route path="/uploads" element={<FileUploadPage />} />
           <Route path="/settings" element={<SettingsPage />} />
 
           <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
