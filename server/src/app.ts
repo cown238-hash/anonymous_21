@@ -70,6 +70,7 @@ function buildSecurityMiddleware(inlineHashes: string[]) {
         // cloudflareinsights.com hosts the Web Analytics beacon Cloudflare
         // injects at the edge.
         scriptSrc: ["'self'", ...inlineHashes, 'https://static.cloudflareinsights.com'],
+        scriptSrcElem: ["'self'", ...inlineHashes, 'https://static.cloudflareinsights.com'],
         imgSrc: ["'self'", 'data:', 'blob:'],
         connectSrc: ["'self'", 'ws:', 'wss:', 'https://static.cloudflareinsights.com', 'https://cloudflareinsights.com'],
         fontSrc: ["'self'", 'data:'],
